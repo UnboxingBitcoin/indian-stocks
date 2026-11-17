@@ -216,12 +216,18 @@ async function getSheet(name){
   const rows=parseCSV(t);const h=rows.shift().map(x=>x.trim());
   return rows.filter(x=>x.length>1&&x[0]).map(x=>Object.fromEntries(h.map((k,i)=>[k,x[i]])));
 }
+async function getRaw(name){
+  const u=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(name)}&headers=0&_=${Date.now()}`;
+  const r=await fetch(u);if(!r.ok)throw new Error(r.status);const t=await r.text();if(t.trim().startsWith("<"))throw new Error("not shared");return parseCSV(t)}
 async function load(){
   $("#hdr-sub").textContent="Loading…";
   try{
-    const [ix,un,lv]=await Promise.all([getSheet("Indices"),getSheet("Universe"),getSheet("Levels")]);
+    const [ix,un,lv,ilRaw]=await Promise.all([getSheet("Indices"),getSheet("Universe"),getSheet("Levels"),getRaw("Index Lists")]);
+    // index membership straight from the official lists (column header = index code)
+    const mem={};const codes=ilRaw[0];ilRaw.slice(2).forEach(r=>r.forEach((sym,i)=>{sym=(sym||"").trim();if(!sym||!codes[i])return;(mem[sym]=mem[sym]||[]).push(codes[i].trim())}));
     st.idx=ix.map(r=>({name:r["Index"],code:r["Code"],level:num(r["Level"]),chg:num(r["Day chg %"]),n:num(r["Stocks"]),adv:num(r["Advancing"]),dec:num(r["Declining"]),avg:num(r["Avg stock chg %"]),cube:num(r["At primary / secondary cube"])}));
-    st.uni=un.map(r=>({sym:r["Symbol"],sector:r["Sector"],idx:(r["Indices"]||"").trim().split(/\s+/),name:r["Name"],price:num(r["Price (₹)"]),chg:num(r["Day chg %"]),hi:num(r["52w high"]),lo:num(r["52w low"]),cube:num(r["Nearest cube"]),cubeType:r["Cube type"],cubeDist:num(r["Cube distance"]),sig:r["Cube signal"]||"",lvl:num(r["Nearest square / Sq9 / Sq12"]),lvlType:r["Level type"],lvlDist:num(r["Distance"])}));
+    st.uni=un.map(r=>({sym:r["Symbol"],sector:r["Sector"],idx:mem[(r["Symbol"]||"").trim()]||(r["Indices"]||"").trim().split(/\s+/),name:r["Name"],price:num(r["Price (₹)"]),chg:num(r["Day chg %"]),hi:num(r["52w high"]),lo:num(r["52w low"]),cube:num(r["Nearest cube"]),cubeType:r["Cube type"],cubeDist:num(r["Cube distance"]),sig:r["Cube signal"]||"",lvl:num(r["Nearest square / Sq9 / Sq12"]),lvlType:r["Level type"],lvlDist:num(r["Distance"])}));
+    const have=new Set(st.uni.map(x=>x.sym));Object.keys(mem).forEach(k=>{if(!have.has(k))st.uni.push({sym:k,sector:"",idx:mem[k],name:"",price:null,chg:null,sig:""})});
     st.lv={};lv.forEach(r=>{st.lv[r["Symbol"]]=r});
     st.loadedAt=new Date();
     $("#msg").innerHTML="";
@@ -241,7 +247,7 @@ const today=()=>new Date().toLocaleDateString("en-IN",{weekday:"short",month:"sh
 /* ---------- views ---------- */
 function renderAll(){
   const t=st.loadedAt;$("#hdr-sub").textContent=`${today()} · ${t.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"})}`;
-  $("#loaded-at").textContent="Last loaded "+t.toLocaleString("en-IN");
+  $("#loaded-at").textContent=`Last loaded ${t.toLocaleString("en-IN")} · ${st.uni.length} stocks, ${st.uni.filter(x=>x.price!=null).length} with prices`;
   renderHome();if(st.sel)renderDetail();renderScanControls();renderScan();
 }
 function card(ix){
@@ -282,7 +288,7 @@ function renderDetail(){
   sortList(list);
   const sorts=[["chg","Top gainers"],["lose","Top losers"],["cube","Nearest cube"],["hi","Near 52w high"],["az","A–Z"]];
   d.innerHTML=`<div class="section">
-    <div class="row between"><button class="link" id="back">← Indices</button><span class="sub">${ix.n} stocks</span></div>
+    <div class="row between"><button class="link" id="back">← Indices</button><span class="sub">${members(st.sel).length} stocks</span></div>
     <h1 style="margin-top:14px;font-size:20px">${esc(ix.name)}</h1>
     <div class="row" style="margin-top:8px">${ix.level!=null?`<span class="big">${fmt(ix.level)}</span>`:""}${chg(ix.level!=null?ix.chg:ix.avg)}</div>
     <div class="stats"><div class="stat"><b>${ix.adv??0}</b><span>Up</span></div><div class="stat"><b>${ix.dec??0}</b><span>Down</span></div><div class="stat"><b>${ix.avg!=null?(ix.avg*100).toFixed(1):"–"}</b><span>Avg %</span></div><div class="stat"><b>${ix.cube??0}</b><span>◆ Cube</span></div></div>
