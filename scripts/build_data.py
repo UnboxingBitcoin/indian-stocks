@@ -1,0 +1,250 @@
+"""Nightly build: all-NSE price history -> Gann pivots, time-cycle windows and astro backtest.
+Writes JSON into OUT (default ./out):
+  meta.json            every stock: symbol, name, last close, change, next pivot window
+  astro.json           astro events (recent + upcoming) and Gann seasonal pressure dates
+  s/<SYMBOL>.json      one file per stock
+"""
+import datetime as dt, io, json, math, os, sys, time, urllib.request
+import numpy as np
+import pandas as pd
+
+sys.path.insert(0, os.path.dirname(__file__))
+import astro
+
+OUT = sys.argv[1] if len(sys.argv) > 1 else "out"
+TODAY = dt.date.today()
+HORIZON = 400                # days ahead to project
+ASTRO_FROM = dt.date(2005, 1, 1)
+
+# Gann counts (days and weeks). From Gann's Square of 144 / 1953 Master Calculator notes plus
+# squares and cubes, extended to 512, 729, 1000 and 1440 as requested.
+CYCLES = [30, 45, 49, 60, 63, 64, 72, 84, 90, 98, 100, 108, 120, 135, 144, 147, 180, 196, 216,
+          225, 240, 270, 288, 315, 343, 360, 432, 512, 540, 576, 720, 729, 1000, 1080, 1440]
+D_K, W_K = 20, 13            # swing window: daily pivots = highest/lowest within ±20 days, weekly ±13 weeks
+D_YEARS = 3                  # daily pivots from the last 3 years; weekly pivots from full history
+TURN_K, TURN_WIN = 10, 2     # astro backtest: turning point = ±10-day swing, hit if within ±2 trading days
+
+UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36"}
+
+
+def log(*a):
+    print(*a, flush=True)
+
+
+def nse_symbols():
+    """All NSE equities (EQ/BE series). Falls back to the screener universe."""
+    try:
+        req = urllib.request.Request("https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv", headers=UA)
+        df = pd.read_csv(io.BytesIO(urllib.request.urlopen(req, timeout=60).read()))
+        df.columns = [c.strip() for c in df.columns]
+        df = df[df["SERIES"].str.strip().isin(["EQ", "BE"])]
+        out = {r["SYMBOL"].strip(): r["NAME OF COMPANY"].strip() for _, r in df.iterrows()}
+        log("NSE list:", len(out))
+        if len(out) > 1000:
+            return out
+    except Exception as e:
+        log("NSE list failed:", e)
+    fb = os.path.join(os.path.dirname(__file__), "symbols.txt")
+    return {l.split("|")[0]: l.split("|")[1].strip() for l in open(fb) if "|" in l}
+
+
+def history(syms):
+    import yfinance as yf
+    tick = [s + ".NS" for s in syms]
+    for attempt in range(3):
+        try:
+            df = yf.download(tick, period="max", interval="1d", group_by="ticker", auto_adjust=False,
+                             threads=True, progress=False, timeout=60)
+            break
+        except Exception as e:
+            log("batch retry", attempt, e)
+            time.sleep(20)
+    else:
+        return {}
+    res = {}
+    for s, t in zip(syms, tick):
+        try:
+            d = df[t] if len(tick) > 1 else df
+            d = d[["Open", "High", "Low", "Close"]].dropna()
+            d = d[(d["High"] > 0) & (d["Low"] > 0)]
+            if len(d) >= 60:
+                d.index = pd.to_datetime(d.index).tz_localize(None)
+                res[s] = d
+        except Exception:
+            pass
+    return res
+
+
+def swings(h, l, k, confirm=True):
+    """Indices of swing highs / lows: extreme within ±k bars."""
+    n = len(h)
+    hi, lo = [], []
+    hv, lv = h.values, l.values
+    for i in range(n):
+        a, b = max(0, i - k), min(n, i + k + 1)
+        if confirm and i + k >= n:
+            break
+        if hv[i] == hv[a:b].max():
+            hi.append(i)
+        if lv[i] == lv[a:b].min():
+            lo.append(i)
+    return hi, lo
+
+
+def pivots(d):
+    w = d.resample("W-FRI").agg({"High": "max", "Low": "min", "Close": "last"}).dropna()
+    out = []
+    wh, wl = swings(w["High"], w["Low"], W_K)
+    for i in wh:  # weekly swing: use the actual day of the extreme inside that week
+        wk = d.loc[w.index[i] - pd.Timedelta(days=6):w.index[i]]
+        out.append(("H", "W", wk["High"].idxmax().date(), float(wk["High"].max())))
+    for i in wl:
+        wk = d.loc[w.index[i] - pd.Timedelta(days=6):w.index[i]]
+        out.append(("L", "W", wk["Low"].idxmin().date(), float(wk["Low"].min())))
+    recent = d[d.index >= pd.Timestamp(TODAY - dt.timedelta(days=365 * D_YEARS))]
+    if len(recent) > 2 * D_K:
+        dh, dl = swings(recent["High"], recent["Low"], D_K)
+        out += [("H", "D", recent.index[i].date(), float(recent["High"].iloc[i])) for i in dh]
+        out += [("L", "D", recent.index[i].date(), float(recent["Low"].iloc[i])) for i in dl]
+    # all-time and 52-week extremes always count
+    out.append(("H", "ATH", d["High"].idxmax().date(), float(d["High"].max())))
+    out.append(("L", "ATL", d["Low"].idxmin().date(), float(d["Low"].min())))
+    y = d[d.index >= pd.Timestamp(TODAY - dt.timedelta(days=365))]
+    if len(y):
+        out.append(("H", "52W", y["High"].idxmax().date(), float(y["High"].max())))
+        out.append(("L", "52W", y["Low"].idxmin().date(), float(y["Low"].min())))
+    # de-duplicate same date & side, keep the strongest label
+    rank = {"ATH": 4, "ATL": 4, "W": 3, "52W": 2, "D": 1}
+    best = {}
+    for p in out:
+        k = (p[0], p[2])
+        if k not in best or rank[p[1]] > rank[best[k][1]]:
+            best[k] = p
+    return sorted(best.values(), key=lambda p: p[2])
+
+
+WEIGHT = {"ATH": 3, "ATL": 3, "W": 2, "52W": 2, "D": 1}
+
+
+def windows(piv):
+    lo, hi = TODAY - dt.timedelta(days=10), TODAY + dt.timedelta(days=HORIZON)
+    hits = []
+    for side, tf, d0, px in piv:
+        for c in CYCLES:
+            for unit, days in (("d", c), ("w", c * 7)):
+                t = d0 + dt.timedelta(days=days)
+                if lo <= t <= hi:
+                    hits.append((t, WEIGHT[tf] * (1.5 if unit == "w" else 1), f"{c}{unit}", side, tf, d0))
+    hits.sort()
+    wins, i = [], 0
+    while i < len(hits):
+        j = i
+        while j + 1 < len(hits) and (hits[j + 1][0] - hits[i][0]).days <= 4:
+            j += 1
+        grp = hits[i:j + 1]
+        score = sum(h[1] for h in grp)
+        if len(grp) >= 3:
+            ds = [h[0] for h in grp]
+            mid = ds[0] + (ds[-1] - ds[0]) / 2
+            top = sorted(grp, key=lambda h: -h[1])[:6]
+            wins.append({"a": ds[0].isoformat(), "b": ds[-1].isoformat(), "m": mid.isoformat(), "sc": round(score, 1),
+                         "n": len(grp), "why": [[h[2], h[3], h[4], h[5].isoformat()] for h in top]})
+        i = j + 1
+    # keep the strongest windows, shown in date order
+    strong = sorted(wins, key=lambda w: -w["sc"])[:14]
+    return sorted(strong, key=lambda w: w["a"])
+
+
+def astro_stats(d, ev):
+    """For each event category: how often a ±TURN_K-day turning point fell within ±TURN_WIN trading days."""
+    d = d[d.index >= pd.Timestamp(ASTRO_FROM)]
+    if len(d) < 250:
+        return {}
+    hi, lo = swings(d["High"], d["Low"], TURN_K)
+    turn = np.zeros(len(d), bool)
+    turn[hi] = True
+    turn[lo] = True
+    near = np.convolve(turn.astype(int), np.ones(2 * TURN_WIN + 1, int), "same") > 0
+    valid = len(d) - TURN_K  # last bars cannot be confirmed yet
+    base = near[:valid].mean()
+    c = d["Close"].values
+    mv = np.full(len(d), np.nan)
+    mv[:-5] = np.abs(c[5:] / c[:-5] - 1)
+    mv_all = np.nanmean(mv[:valid])
+    idx = d.index.values.astype("datetime64[D]")
+    res = {}
+    for e in ev:
+        t = np.datetime64(e["d"])
+        if t < idx[0] or t > idx[valid - 1]:
+            continue
+        i = int(np.searchsorted(idx, t))
+        if i >= valid:
+            continue
+        r = res.setdefault(e["c"], [0, 0, []])
+        r[0] += 1
+        r[1] += int(near[i])
+        if not np.isnan(mv[i]):
+            r[2].append(mv[i])
+    out = {}
+    for k, (n, h, m) in res.items():
+        if n >= 5:
+            out[k] = [n, h, round(float(base), 3), round(float(np.mean(m)) if m else 0, 4), round(float(mv_all), 4)]
+    return out
+
+
+def seasonal(year_from, year_to):
+    """Gann seasonal pressure dates: equinoxes, solstices and the midpoints between them."""
+    out = []
+    for y in range(year_from, year_to + 1):
+        for m, d, t in ((2, 4, "Gann seasonal (Feb 4)"), (3, 21, "Spring equinox"), (5, 6, "Gann seasonal (May 6)"),
+                        (6, 21, "Summer solstice"), (8, 8, "Gann seasonal (Aug 8)"), (9, 23, "Autumn equinox"),
+                        (11, 8, "Gann seasonal (Nov 8)"), (12, 21, "Winter solstice")):
+            out.append({"d": dt.date(y, m, d).isoformat(), "c": "Gann pressure date", "t": t})
+    return out
+
+
+def main():
+    os.makedirs(os.path.join(OUT, "s"), exist_ok=True)
+    log("astro events…")
+    ev = astro.events(ASTRO_FROM, TODAY + dt.timedelta(days=HORIZON))
+    ev_hist = [e for e in ev if e["d"] <= TODAY.isoformat()]
+    up = [e for e in ev if (TODAY - dt.timedelta(days=30)).isoformat() <= e["d"]]
+    press = [e for e in seasonal(TODAY.year - 1, TODAY.year + 2) if (TODAY - dt.timedelta(days=30)).isoformat() <= e["d"]]
+    json.dump({"asof": TODAY.isoformat(), "events": up, "pressure": press}, open(os.path.join(OUT, "astro.json"), "w"), separators=(",", ":"))
+
+    names = nse_symbols()
+    syms = sorted(names)
+    meta = []
+    B = 40
+    for b in range(0, len(syms), B):
+        batch = syms[b:b + B]
+        hist = history(batch)
+        log(f"{b + len(batch)}/{len(syms)} got {len(hist)}")
+        for s, d in hist.items():
+            try:
+                piv = pivots(d)
+                win = windows(piv)
+                st = astro_stats(d, ev_hist)
+                last, prev = float(d["Close"].iloc[-1]), float(d["Close"].iloc[-2])
+                major = [p for p in piv if p[1] in ("W", "ATH", "ATL", "52W")][-12:]
+                rec = {"s": s, "n": names.get(s, s), "asof": d.index[-1].date().isoformat(), "last": round(last, 2),
+                       "first": d.index[0].date().isoformat(),
+                       "piv": [[p[0], p[1], p[2].isoformat(), round(p[3], 2)] for p in major],
+                       "win": win, "astro": st}
+                with open(os.path.join(OUT, "s", f"{s}.json"), "w") as f:
+                    json.dump(rec, f, separators=(",", ":"))
+                nxt = next((w for w in win if w["b"] >= TODAY.isoformat()), None)
+                meta.append([s, names.get(s, s), round(last, 2), round(last / prev - 1, 4) if prev else 0,
+                             nxt["a"] if nxt else "", nxt["b"] if nxt else "", nxt["sc"] if nxt else 0])
+            except Exception as e:
+                log("fail", s, e)
+        time.sleep(1.5)
+    json.dump({"asof": TODAY.isoformat(), "cols": ["sym", "name", "last", "chg", "winA", "winB", "winScore"], "rows": meta},
+              open(os.path.join(OUT, "meta.json"), "w"), separators=(",", ":"))
+    log("done", len(meta), "stocks")
+    if len(meta) < 200:
+        sys.exit("too few stocks fetched; not publishing")
+
+
+if __name__ == "__main__":
+    main()

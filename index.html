@@ -132,6 +132,14 @@ summary{list-style:none;cursor:pointer;font-size:13px;font-weight:700;font-famil
 summary::-webkit-details-marker{display:none}
 summary::before{content:"[+] "}details[open] summary::before{content:"[–] "}
 ul.plain{padding-left:18px;margin:8px 0;font-size:14px}
+.win{padding:9px 0;border-top:2px dashed var(--hair)}.win:first-child{border-top:0}
+.win .wd{font-family:"Space Mono",monospace;font-weight:700;font-size:14px}
+.win .why{font-size:12px;color:var(--muted);margin-top:3px;font-family:"Space Mono",monospace}
+.win.now .wd::after{content:" ● NOW";color:var(--bad)}
+.sc{display:inline-block;font:700 11px/1.6 "Space Mono",monospace;background:var(--accent);color:var(--on-accent);border-radius:6px;padding:0 6px;margin-left:6px}
+.ar{display:flex;gap:8px;align-items:center;padding:7px 0;border-top:2px dashed var(--hair);font-size:13px}.ar:first-child{border-top:0}
+.ar .k{flex:1;min-width:0}.ar .v{font-family:"Space Mono",monospace;font-size:12px;text-align:right;white-space:nowrap}
+.lift{font-weight:700}.lift.hi{color:var(--good)}.lift.lo{color:var(--bad)}
 .foot{font-size:11px;color:var(--muted);text-align:center;margin-top:22px;font-family:"Space Mono",monospace}
 </style>
 </head>
@@ -163,6 +171,15 @@ ul.plain{padding-left:18px;margin:8px 0;font-size:14px}
     <div class="section"><div class="row between"><h2 id="scan-title">Results</h2><span class="sub" id="scan-count"></span></div><div id="scan-list"></div></div>
   </section>
 
+  <!-- Time -->
+  <section class="view" id="v-time">
+    <div class="section"><h2>Pivot windows this week</h2><div class="sub" style="margin-bottom:8px">Stocks where several Gann time cycles from their major highs and lows land in the next 7 days. Higher score = more cycles stacking.</div>
+      <select id="time-idx" style="margin-bottom:6px"></select><div id="time-wins"><div class="empty">Loading…</div></div></div>
+    <div class="section"><h2>Astro events ahead</h2><div id="time-astro"><div class="empty">Loading…</div></div>
+      <div class="sub" style="margin-top:10px">Full calendar: <a href="https://unboxingbitcoin.github.io/astro-calendar/#feed" style="color:inherit">Krishna Mukh astro calendar</a></div></div>
+    <div class="section"><h2>Gann pressure dates</h2><div id="time-press"></div></div>
+  </section>
+
   <!-- More -->
   <section class="view" id="v-more">
     <div class="section"><h2>Theme</h2><div class="themes" id="themes"></div></div>
@@ -182,7 +199,9 @@ ul.plain{padding-left:18px;margin:8px 0;font-size:14px}
       <h2>Data</h2>
       <div style="font-size:14px">Prices come from Google Finance through the screener's Google Sheet, delayed up to about 20 minutes. Index lists are NSE's official constituents (Nov 2026). The page refreshes every 5 minutes while open.</div>
       <div class="sub" id="loaded-at" style="margin-top:8px"></div>
-      <details><summary>Coming next</summary><ul class="plain"><li>Gann time cycles from major daily and weekly highs and lows</li><li>Pressure dates and Gann angles</li><li>Astro signals from the Krishna Mukh calendar</li></ul></details>
+      <div style="font-size:14px;margin-top:8px">Pivot windows and astro history come from a nightly job (Mon–Fri, about 6:10 pm IST) that reads every NSE stock's full daily history.</div>
+      <details><summary>How pivot windows work</summary><ul class="plain"><li>Major pivots: weekly swing highs and lows (highest or lowest within ±13 weeks, full history), daily swings (±20 days, last 3 years), all-time and 52-week high and low.</li><li>From each pivot the job counts 30, 45, 49, 60, 63, 64, 72, 84, 90, 98, 100, 108, 120, 135, 144, 147, 180, 196, 216, 225, 240, 270, 288, 315, 343, 360, 432, 512, 540, 576, 720, 729, 1000, 1080 and 1440 days and weeks ahead.</li><li>Dates within 4 days of each other are grouped into one window. Score = number of cycles, with weekly and all-time pivots and week counts weighted higher.</li></ul></details>
+      <details><summary>How astro history works</summary><ul class="plain"><li>Events since 2005 from Swiss Ephemeris, Lahiri sidereal for sign changes: eclipses, new and full moons, stations, ingress of Mars, Jupiter, Saturn, Rahu and the outer planets, and aspects between the slow planets.</li><li>A hit = the stock made a turning point (highest or lowest within ±10 days) within 2 trading days of the event.</li><li>Base = how often any random day is that close to a turning point for the same stock. Only categories with 5+ past events are shown. A rate well above base, over many events, is what matters.</li></ul></details>
     </div>
   </section>
   <div class="foot">Not investment advice. Levels are mechanical Gann calculations.</div>
@@ -191,17 +210,19 @@ ul.plain{padding-left:18px;margin:8px 0;font-size:14px}
 <nav><div class="in">
   <button data-v="indices" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Indices</button>
   <button data-v="scan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/></svg>Cubes</button>
+  <button data-v="time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Time</button>
   <button data-v="more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>More</button>
 </div></nav>
 
 <div class="sheet-bg" id="sheet-bg"><div class="sheet" id="sheet"></div></div>
 
 <script>
+const DATA="https://raw.githubusercontent.com/UnboxingBitcoin/indian-stocks/data/";
 const SHEET_ID="1Di81rOTexQPeIiW3l4VHlXe49gyeuPJ_lgQGCGGoDcs";
 const GROUPS=[["Broad market",["N50","SENSEX","NN50","N100","N200","N500"]],["Size",["MID150","SML250","MIC250"]],["Sectors & themes",null]];
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const st={idx:[],uni:[],lv:{},band:.01,sel:null,sort:"chg",q:"",tier:"Primary cube",scanIdx:"",loadedAt:null};
+const st={meta:null,astro:null,metaMap:{},idx:[],uni:[],lv:{},band:.01,sel:null,sort:"chg",q:"",tier:"Primary cube",scanIdx:"",loadedAt:null};
 
 /* ---------- data ---------- */
 function parseCSV(t){const rows=[];let r=[],f="",q=false;for(let i=0;i<t.length;i++){const c=t[i];
@@ -219,6 +240,14 @@ async function getSheet(name){
 async function getRaw(name){
   const u=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(name)}&headers=0&_=${Date.now()}`;
   const r=await fetch(u);if(!r.ok)throw new Error(r.status);const t=await r.text();if(t.trim().startsWith("<"))throw new Error("not shared");return parseCSV(t)}
+async function loadNightly(){
+  try{
+    const [m,a]=await Promise.all([fetch(DATA+"meta.json?d="+new Date().toISOString().slice(0,10)).then(r=>r.ok?r.json():null),fetch(DATA+"astro.json?d="+new Date().toISOString().slice(0,10)).then(r=>r.ok?r.json():null)]);
+    st.meta=m;st.astro=a;st.metaMap={};
+    if(m)m.rows.forEach(r=>{st.metaMap[r[0]]={sym:r[0],name:r[1],last:r[2],chg:r[3],wa:r[4],wb:r[5],ws:r[6]}});
+  }catch(e){}
+  renderTime();
+}
 async function load(){
   $("#hdr-sub").textContent="Loading…";
   try{
@@ -248,7 +277,7 @@ const today=()=>new Date().toLocaleDateString("en-IN",{weekday:"short",month:"sh
 function renderAll(){
   const t=st.loadedAt;$("#hdr-sub").textContent=`${today()} · ${t.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"})}`;
   $("#loaded-at").textContent=`Last loaded ${t.toLocaleString("en-IN")} · ${st.uni.length} stocks, ${st.uni.filter(x=>x.price!=null).length} with prices`;
-  renderHome();if(st.sel)renderDetail();renderScanControls();renderScan();
+  renderHome();if(st.sel)renderDetail();renderScanControls();renderScan();renderTime();
 }
 function card(ix){
   const tot=(ix.adv||0)+(ix.dec||0)||1;
@@ -259,12 +288,13 @@ function card(ix){
   <div class="ft"><span>▲${ix.adv??0} ▼${ix.dec??0}</span><span>◆${ix.cube??0}</span></div></button>`}
 function renderHome(){
   const used=new Set(GROUPS.flatMap(g=>g[1]||[]));
-  let h=`<div class="notice info"><span class="dot"></span><span style="font-weight:500;font-size:13px">Tap an index to see its stocks. ▲▼ = advancing / declining, ◆ = stocks at a primary or secondary cube.</span></div>`;
+  let h=`<div class="section" style="margin-top:14px"><input id="all-q" placeholder="Search any NSE stock" autocomplete="off"><div id="all-res"></div></div><div class="notice info"><span class="dot"></span><span style="font-weight:500;font-size:13px">Tap an index to see its stocks. ▲▼ = advancing / declining, ◆ = stocks at a primary or secondary cube.</span></div>`;
   for(const [g,codes] of GROUPS){
     const list=codes?codes.map(c=>st.idx.find(x=>x.code===c)).filter(Boolean):st.idx.filter(x=>!used.has(x.code));
     h+=`<div class="grp"><h2>${g}</h2></div><div class="grid">${list.map(card).join("")}</div>`;
   }
   $("#idx-home").innerHTML=h;
+  $("#all-q").oninput=e=>searchAll(e.target.value);
   $("#idx-home").querySelectorAll(".card").forEach(b=>b.onclick=()=>{st.sel=b.dataset.code;st.q="";renderDetail();window.scrollTo(0,0)});
 }
 function members(code){return st.uni.filter(s=>s.idx.includes(code))}
@@ -319,6 +349,74 @@ function renderScan(){
 const LV_KEYS={"Primary cube":["Primary cube −1","Primary cube +1"],"Secondary cube":["Secondary cube −3","Secondary cube −2","Secondary cube −1","Secondary cube +1","Secondary cube +2","Secondary cube +3"],"Tertiary cube":["Tertiary cube −3","Tertiary cube −2","Tertiary cube −1","Tertiary cube +1","Tertiary cube +2","Tertiary cube +3"]};
 function tierDist(s,tier){const r=st.lv[s.sym];if(!r||!s.price)return null;let best=null;for(const k of LV_KEYS[tier]){const v=num(r[k]);if(v==null)continue;const d=v/s.price-1;if(best==null||Math.abs(d)<Math.abs(best))best=d}return best}
 
+/* ---------- levels in the browser (same maths as the sheet) ---------- */
+function calcLevels(P){
+  const cheap=P<100,D=cheap?10:1,cb=n=>n*n*n,r={Mode:cheap?"Cheap":"Normal"};
+  const e=Math.floor(Math.cbrt(P*D)+1e-6),f=Math.floor(Math.cbrt(P*D*10)+1e-6),g=Math.floor(Math.cbrt(P*D*100)+1e-6),h=Math.sqrt(P);
+  r["Primary cube −1"]=cb(e)/D;r["Primary cube +1"]=cb(e+1)/D;
+  [[f,"Secondary",D*10],[g,"Tertiary",D*100]].forEach(([n,nm,d])=>{[-3,-2,-1].forEach((k,i)=>r[`${nm} cube ${k===-3?"−3":k===-2?"−2":"−1"}`]=cb(n+k+1)/d);[1,2,3].forEach(k=>r[`${nm} cube +${k}`]=cb(n+k)/d)});
+  r["Square −1"]=Math.floor(h)**2;r["Square +1"]=(Math.floor(h)+1)**2;
+  [["−360°",-2],["−180°",-1],["−90°",-.5],["+90°",.5],["+180°",1],["+360°",2]].forEach(([k,v])=>r["Sq9 "+k]=(h+v)**2);
+  [["−120°",-2/3],["−60°",-1/3],["−30°",-1/6],["+30°",1/6],["+60°",1/3],["+120°",2/3]].forEach(([k,v])=>r["Sq12 "+k]=(h+v)**2);
+  for(const k in r)if(typeof r[k]==="number")r[k]=String(+r[k].toFixed(2));
+  return r}
+function cubeSignal(P,r){for(const t of TIERS){if(LV_KEYS[t].some(k=>Math.abs(num(r[k])/P-1)<=st.band))return t}return""}
+
+/* ---------- all-NSE search ---------- */
+function searchAll(q){
+  q=q.trim().toUpperCase();const box=$("#all-res");if(q.length<2){box.innerHTML="";return}
+  const pool=new Map();st.uni.forEach(u=>pool.set(u.sym,{sym:u.sym,name:u.name||u.sector,price:u.price,chg:u.chg,sig:u.sig,cubeDist:u.cubeDist}));
+  Object.values(st.metaMap).forEach(m=>{if(!pool.has(m.sym))pool.set(m.sym,{sym:m.sym,name:m.name,price:m.last,chg:m.chg})});
+  const res=[...pool.values()].filter(x=>x.sym.includes(q)||(x.name||"").toUpperCase().includes(q)).sort((a,b)=>(b.sym.startsWith(q))-(a.sym.startsWith(q))||a.sym.localeCompare(b.sym)).slice(0,25);
+  box.innerHTML=res.map(stockRow).join("")||`<div class="empty">${st.meta?"No match.":"Full NSE list appears after the first nightly run."}</div>`;bindStocks(box)}
+
+/* ---------- time tab ---------- */
+const dfmt=d=>new Date(d+"T00:00").toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"});
+const dshort=d=>new Date(d+"T00:00").toLocaleDateString("en-IN",{day:"numeric",month:"short"});
+const iso=d=>d.toISOString().slice(0,10);
+function renderTime(){
+  const sel=$("#time-idx");
+  if(!sel.options.length&&st.idx.length){sel.innerHTML=`<option value="">All NSE stocks</option>`+st.idx.map(i=>`<option value="${i.code}">${esc(i.name)}</option>`).join("");sel.onchange=renderTime}
+  if(!st.meta){$("#time-wins").innerHTML=`<div class="empty">Appears after the first nightly run.</div>`;}
+  else{
+    const t0=iso(new Date(Date.now()-864e5)),t7=iso(new Date(Date.now()+7*864e5)),code=sel.value;
+    let rows=Object.values(st.metaMap).filter(m=>m.wa&&m.wa<=t7&&m.wb>=t0);
+    if(code){const set=new Set(members(code).map(x=>x.sym));rows=rows.filter(m=>set.has(m.sym))}
+    rows.sort((a,b)=>b.ws-a.ws);
+    $("#time-wins").innerHTML=rows.slice(0,60).map(m=>`<button class="stock" data-sym="${esc(m.sym)}"><div class="grow"><div class="sy">${esc(m.sym)}<span class="sc">${m.ws}</span></div><div class="nmx">${esc(m.name)}</div><div class="sub">${dshort(m.wa)}${m.wb!==m.wa?" – "+dshort(m.wb):""}</div></div><div class="px">₹${fmt(m.last)}<br>${chg(m.chg)}</div></button>`).join("")||'<div class="empty">No pivot windows this week.</div>';
+    bindStocks($("#time-wins"));
+  }
+  if(st.astro){
+    const t=iso(new Date()),lim=iso(new Date(Date.now()+75*864e5));
+    const ev=st.astro.events.filter(e=>e.d>=t&&e.d<=lim&&!/^(New|Full) moon$/.test(e.t)||(e.d>=t&&e.d<=iso(new Date(Date.now()+31*864e5))));
+    $("#time-astro").innerHTML=ev.map(e=>`<div class="ar"><span class="v" style="text-align:left;width:70px">${dshort(e.d)}</span><span class="k">${esc(e.t)}</span></div>`).join("")||'<div class="empty">None.</div>';
+    $("#time-press").innerHTML=st.astro.pressure.filter(e=>e.d>=t).slice(0,6).map(e=>`<div class="ar"><span class="v" style="text-align:left;width:100px">${dfmt(e.d)}</span><span class="k">${esc(e.t)}</span></div>`).join("");
+  } else {$("#time-astro").innerHTML=`<div class="empty">Appears after the first nightly run.</div>`;$("#time-press").innerHTML=""}
+}
+
+/* ---------- stock sheet: time & astro ---------- */
+const TF={W:"weekly",D:"daily",ATH:"all-time",ATL:"all-time","52W":"52-week"};
+function why(w){const [cyc,side,tf,d]=w;const u=cyc.endsWith("w")?" weeks":" days";return`${cyc.slice(0,-1)}${u} from ${TF[tf]} ${side==="H"?"high":"low"} ${dfmt(d)}`}
+async function stockTime(sym,price){
+  const box=$("#sh-time");if(!box)return;
+  let d;try{const r=await fetch(DATA+"s/"+encodeURIComponent(sym)+".json?d="+(st.meta?.asof||""));if(!r.ok)throw 0;d=await r.json()}catch(e){box.innerHTML=`<div class="section" style="margin:14px 0 0;box-shadow:var(--shadow-sm)"><h2>Gann time</h2><div class="empty">${st.meta?"No history for this stock.":"Appears after the first nightly run."}</div></div>`;return}
+  const t=iso(new Date());
+  const wins=d.win.filter(w=>w.b>=iso(new Date(Date.now()-3*864e5)));
+  let h=`<div class="section" style="margin:14px 0 0;box-shadow:var(--shadow-sm)"><h2>Pivot windows ahead</h2><div class="sub" style="margin-bottom:4px">Gann day and week counts from major highs and lows, stacking on the same dates.</div>`;
+  h+=wins.map(w=>`<div class="win ${w.a<=t&&w.b>=t?"now":""}"><div class="wd">${dshort(w.a)}${w.b!==w.a?" – "+dfmt(w.b):", "+new Date(w.a).getFullYear()}<span class="sc">score ${w.sc} · ${w.n} cycles</span></div><div class="why">${w.why.slice(0,3).map(why).map(esc).join("<br>")}</div></div>`).join("")||'<div class="empty">No strong windows in the next year.</div>';
+  h+=`</div><div class="section" style="margin:14px 0 0;box-shadow:var(--shadow-sm)"><h2>Major highs & lows</h2>`;
+  h+=d.piv.slice().reverse().map(p=>`<div class="ar"><span class="k">${p[0]==="H"?"▲ High":"▼ Low"} <span class="sub">${TF[p[1]]}</span></span><span class="v">${dfmt(p[2])}</span><span class="v" style="width:84px">₹${fmt(p[3])}</span></div>`).join("");
+  h+=`<div class="sub" style="margin-top:6px">History from ${dfmt(d.first)} · data as of ${dfmt(d.asof)}</div></div>`;
+  const cats=Object.entries(d.astro||{}).map(([k,v])=>({k,n:v[0],hit:v[1],base:v[2],mv:v[3],mvAll:v[4],rate:v[1]/v[0]})).map(x=>({...x,lift:x.base?x.rate/x.base:0})).sort((a,b)=>b.lift-a.lift);
+  if(cats.length){
+    const nextOf=k=>st.astro?.events.find(e=>e.c===k&&e.d>=t);
+    const row=x=>{const nx=nextOf(x.k);const cls=x.lift>=1.3&&x.n>=8?"hi":x.lift<=.75?"lo":"";
+      return`<div class="ar"><span class="k"><b>${esc(x.k)}</b><br><span class="sub">next ${nx?dshort(nx.d):"–"}${nx&&nx.t!==x.k?" · "+esc(nx.t):""}</span></span><span class="v">${x.hit}/${x.n} turned<br><span class="lift ${cls}">${Math.round(x.rate*100)}% vs ${Math.round(x.base*100)}% base</span></span></div>`};
+    h+=`<div class="section" style="margin:14px 0 0;box-shadow:var(--shadow-sm)"><h2>Astro history</h2><div class="sub" style="margin-bottom:4px">How often this stock turned (a ±10-day high or low) within 2 trading days of each event type since 2005, against its random-day base rate.</div>${cats.slice(0,8).map(row).join("")}${cats.length>8?`<details><summary>All ${cats.length} event types</summary>${cats.slice(8).map(row).join("")}</details>`:""}</div>`;
+  }
+  box.innerHTML=h;
+}
+
 /* ---------- stock sheet ---------- */
 function ladder(title,keys,s,r){
   const rows=keys.map(k=>({k,v:num(r[k])})).filter(x=>x.v!=null);
@@ -329,10 +427,12 @@ function ladder(title,keys,s,r){
     const tc=x.k.startsWith("Primary")?"tp":x.k.startsWith("Secondary")?"ts":x.k.startsWith("Tertiary")?"tt":"";
     return`<div class="lr ${tc} ${hit?"hit":""}"><span class="k">${hit?"<b>":""}${esc(x.k)}${hit?"</b>":""}</span><span class="v">${fmt(x.v)}</span><span class="d">${d>0?"+":""}${(d*100).toFixed(2)}%</span></div>`}).join("")}</div></div>`}
 function openStock(sym){
-  const s=st.uni.find(x=>x.sym===sym),r=st.lv[sym];if(!s)return;
+  let s=st.uni.find(x=>x.sym===sym),r=st.lv[sym];
+  if(!s||s.price==null){const m=st.metaMap[sym];if(!m&&!s)return;if(m){s={...(s||{idx:[],sector:""}),sym,name:m.name,price:m.last,chg:m.chg};}}
+  if((!r||!num(r["Primary cube −1"]))&&s.price){r=calcLevels(s.price);s.sig=cubeSignal(s.price,r)}
   const pos=s.hi&&s.lo&&s.hi>s.lo&&s.price!=null?Math.min(100,Math.max(0,(s.price-s.lo)/(s.hi-s.lo)*100)):null;
-  const idxNames=s.idx.map(c=>st.idx.find(i=>i.code===c)?.name).filter(Boolean);
-  let h=`<div class="grip"></div><div class="row between"><div class="grow"><h1 style="font-size:20px">${esc(s.sym)}</h1><div class="sub">${esc(s.name||"")} · ${esc(s.sector)}</div></div><button class="icon-btn" id="sh-x" aria-label="Close">✕</button></div>
+  const idxNames=(s.idx||[]).map(c=>st.idx.find(i=>i.code===c)?.name).filter(Boolean);
+  let h=`<div class="grip"></div><div class="row between"><div class="grow"><h1 style="font-size:20px">${esc(s.sym)}</h1><div class="sub">${esc(s.name||"")}${s.sector?" · "+esc(s.sector):""}</div></div><button class="icon-btn" id="sh-x" aria-label="Close">✕</button></div>
   <div class="row" style="margin-top:12px"><span class="big">₹${fmt(s.price)}</span>${chg(s.chg)}</div>
   ${s.sig?`<div style="margin-top:10px">${sigTag(s.sig,tierDist(s,s.sig))} <span class="sub">${r?esc(r["Mode"])+" stock":""}</span></div>`:(r?`<div class="sub" style="margin-top:8px">${esc(r["Mode"])} stock · no cube within ${(st.band*100).toFixed(0)}%</div>`:"")}
   ${pos!=null?`<div class="sub" style="margin-top:14px">52-week range</div><div class="rng"><i style="left:${pos}%"></i></div><div class="row between sub"><span>₹${fmt(s.lo)}</span><span>₹${fmt(s.hi)}</span></div>`:""}`;
@@ -341,9 +441,11 @@ function openStock(sym){
     h+=ladder("Squares & Square of 9",["Square −1","Square +1","Sq9 −360°","Sq9 −180°","Sq9 −90°","Sq9 +90°","Sq9 +180°","Sq9 +360°"],s,r);
     h+=ladder("Square of 12",["Sq12 −120°","Sq12 −60°","Sq12 −30°","Sq12 +30°","Sq12 +60°","Sq12 +120°"],s,r);
   } else h+=`<div class="empty" style="margin-top:14px">No price from Google Finance for this stock.</div>`;
-  h+=`<div class="sub" style="margin-top:14px">In: ${esc(idxNames.join(", "))}</div>`;
+  h+=`<div id="sh-time"><div class="empty" style="margin-top:14px">Loading Gann time…</div></div>`;
+  if(idxNames.length)h+=`<div class="sub" style="margin-top:14px">In: ${esc(idxNames.join(", "))}</div>`;
   $("#sheet").innerHTML=h;$("#sheet-bg").classList.add("on");$("#sheet").scrollTop=0;
   $("#sh-x").onclick=closeSheet;
+  stockTime(sym,s.price);
 }
 function closeSheet(){$("#sheet-bg").classList.remove("on")}
 $("#sheet-bg").onclick=e=>{if(e.target.id==="sheet-bg")closeSheet()};
@@ -370,7 +472,7 @@ $("#quick-theme").onclick=()=>{const t=document.documentElement.getAttribute("da
 $("#refresh").onclick=load;
 document.addEventListener("gesturestart",e=>e.preventDefault());
 let lastTouch=0;document.addEventListener("touchend",e=>{const n=Date.now();if(n-lastTouch<300)e.preventDefault();lastTouch=n},{passive:false});
-load();setInterval(()=>{if(!document.hidden)load()},5*60*1000);
+load().then(loadNightly);setInterval(()=>{if(!document.hidden)load()},5*60*1000);
 </script>
 </body>
 </html>

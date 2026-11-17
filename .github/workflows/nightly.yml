@@ -1,0 +1,33 @@
+name: Nightly Gann data
+on:
+  schedule:
+    - cron: "40 12 * * 1-5"   # 18:10 IST, after market close, Mon–Fri
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["scripts/**", ".github/workflows/nightly.yml"]
+permissions:
+  contents: write
+concurrency:
+  group: nightly
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyswisseph yfinance pandas numpy
+      - run: python scripts/build_data.py out
+      - name: Publish to the data branch (overwritten each run, so the repo does not grow)
+        run: |
+          cd out
+          git init -q -b data
+          git config user.name "gann-bot"
+          git config user.email "gann-bot@users.noreply.github.com"
+          git add -A
+          git commit -qm "Data $(date -u +%F)"
+          git push -fq "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" data
