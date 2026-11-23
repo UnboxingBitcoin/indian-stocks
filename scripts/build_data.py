@@ -37,6 +37,12 @@ INDEX_TICKERS = {
     "CHEM": ["NIFTY_CHEMICALS.NS"],
 }
 
+# NSE (niftyindices.com) names, used when Yahoo has no ticker for an index
+NSE_INDEX_NAMES = {"MIC250": "NIFTY MICROCAP 250", "PVTBANK": "NIFTY PRIVATE BANK", "OILGAS": "NIFTY OIL & GAS",
+                   "HEALTH": "NIFTY HEALTHCARE INDEX", "MEDIA": "NIFTY MEDIA", "CDUR": "NIFTY CONSUMER DURABLES",
+                   "DEFENCE": "NIFTY INDIA DEFENCE", "CAPMKT": "NIFTY CAPITAL MARKETS", "CHEM": "NIFTY CHEMICALS"}
+LISTS = json.load(open(os.path.join(os.path.dirname(__file__), "index_lists.json")))
+
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36"}
 
 
@@ -119,6 +125,48 @@ def index_history(cands):
         except Exception as e:
             log("index fail", t, e)
     return None, None
+
+
+def nse_index_history(name):
+    """Daily OHLC from niftyindices.com historical data, one year per request."""
+    rows = []
+    url = "https://www.niftyindices.com/Backpage.aspx/getHistoricaldatatabletoString"
+    hdr = {**UA, "Content-Type": "application/json; charset=UTF-8", "X-Requested-With": "XMLHttpRequest",
+           "Referer": "https://www.niftyindices.com/reports/historical-data", "Origin": "https://www.niftyindices.com"}
+    for y in range(2005, TODAY.year + 1):
+        a = dt.date(y, 1, 1).strftime("%d-%b-%Y")
+        b = min(dt.date(y, 12, 31), TODAY).strftime("%d-%b-%Y")
+        body = json.dumps({"cinfo": "{'name':'%s','startDate':'%s','endDate':'%s','indexName':'%s'}" % (name, a, b, name)}).encode()
+        try:
+            r = urllib.request.urlopen(urllib.request.Request(url, data=body, headers=hdr), timeout=60)
+            for x in json.loads(json.loads(r.read())["d"]):
+                rows.append((pd.to_datetime(x["HistoricalDate"]), float(x["OPEN"]), float(x["HIGH"]), float(x["LOW"]), float(x["CLOSE"])))
+        except Exception as e:
+            if y == TODAY.year:
+                log("niftyindices fail", name, y, e)
+        time.sleep(0.5)
+    if len(rows) < 60:
+        return None
+    d = pd.DataFrame(rows, columns=["Date", "Open", "High", "Low", "Close"]).drop_duplicates("Date").set_index("Date").sort_index()
+    return d[(d["High"] > 0) & (d["Low"] > 0)]
+
+
+def equal_weight(members, keep):
+    """Equal-weight index from member stocks (base 1000). Only the timing of turns is meaningful, not the level."""
+    fr = [keep[m] for m in members if m in keep]
+    if len(fr) < 5:
+        return None
+    c = pd.concat({i: f["Close"] for i, f in enumerate(fr)}, axis=1)
+    h = pd.concat({i: f["High"] for i, f in enumerate(fr)}, axis=1)
+    l = pd.concat({i: f["Low"] for i, f in enumerate(fr)}, axis=1)
+    pc = c.shift(1)
+    rc, rh, rl = (c / pc).mean(axis=1), (h / pc).mean(axis=1), (l / pc).mean(axis=1)
+    ok = c.notna().sum(axis=1) >= 3
+    rc, rh, rl = rc[ok].iloc[1:], rh[ok].iloc[1:], rl[ok].iloc[1:]
+    close = 1000 * rc.cumprod()
+    prev = close.shift(1).fillna(1000)
+    d = pd.DataFrame({"Open": prev, "High": prev * rh, "Low": prev * rl, "Close": close}).dropna()
+    return d if len(d) >= 250 else None
 
 
 def record(s, name, d, ev_hist):
@@ -269,6 +317,20 @@ def main():
                 idx_rows.append(row + [t])
             except Exception as e:
                 log("index record fail", code, e)
+    have = {r[1] for r in idx_rows}
+    missing = [c for c in INDEX_TICKERS if c not in have]
+    for code in list(missing):
+        if code in NSE_INDEX_NAMES:
+            d = nse_index_history(NSE_INDEX_NAMES[code])
+            log("niftyindices", code, None if d is None else len(d))
+            if d is not None:
+                try:
+                    idx_rows.append(record("IDX_" + code, code, d, ev_hist) + ["NSE"])
+                    missing.remove(code)
+                except Exception as e:
+                    log("index record fail", code, e)
+    NEEDED = {s for c in missing for s in LISTS.get(c, [])}
+    keep = {}
     names = nse_symbols()
     syms = sorted(names)
     meta = []
@@ -278,11 +340,21 @@ def main():
         hist = history(batch)
         log(f"{b + len(batch)}/{len(syms)} got {len(hist)}")
         for s, d in hist.items():
+            if s in NEEDED:
+                keep[s] = d[d.index >= pd.Timestamp(ASTRO_FROM)]
             try:
                 meta.append(record(s, names.get(s, s), d, ev_hist))
             except Exception as e:
                 log("fail", s, e)
         time.sleep(1.5)
+    for code in missing:
+        d = equal_weight(LISTS.get(code, []), keep)
+        log("equal-weight", code, None if d is None else len(d))
+        if d is not None:
+            try:
+                idx_rows.append(record("IDX_" + code, code, d, ev_hist) + ["EQW"])
+            except Exception as e:
+                log("index record fail", code, e)
     json.dump({"asof": TODAY.isoformat(), "cols": ["sym", "name", "last", "chg", "winA", "winB", "winScore"], "rows": meta, "idx": idx_rows},
               open(os.path.join(OUT, "meta.json"), "w"), separators=(",", ":"))
     log("done", len(meta), "stocks")

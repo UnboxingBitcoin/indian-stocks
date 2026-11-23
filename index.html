@@ -245,7 +245,7 @@ async function loadNightly(){
     const [m,a]=await Promise.all([fetch(DATA+"meta.json?d="+new Date().toISOString().slice(0,10)).then(r=>r.ok?r.json():null),fetch(DATA+"astro.json?d="+new Date().toISOString().slice(0,10)).then(r=>r.ok?r.json():null)]);
     st.meta=m;st.astro=a;st.metaMap={};
     if(m)m.rows.forEach(r=>{st.metaMap[r[0]]={sym:r[0],name:r[1],last:r[2],chg:r[3],wa:r[4],wb:r[5],ws:r[6]}});
-    st.idxMeta={};if(m&&m.idx)m.idx.forEach(r=>{st.idxMeta[r[1]]={sym:r[0],code:r[1],last:r[2],chg:r[3],wa:r[4],wb:r[5],ws:r[6]}});
+    st.idxMeta={};if(m&&m.idx)m.idx.forEach(r=>{st.idxMeta[r[1]]={sym:r[0],code:r[1],last:r[2],chg:r[3],wa:r[4],wb:r[5],ws:r[6],tk:r[7]}});
     if(st.idx.length){renderHome();if(st.sel)renderDetail()}
   }catch(e){}
   renderTime();
@@ -281,9 +281,9 @@ function renderAll(){
   $("#loaded-at").textContent=`Last loaded ${t.toLocaleString("en-IN")} · ${st.uni.length} stocks, ${st.uni.filter(x=>x.price!=null).length} with prices`;
   renderHome();if(st.sel)renderDetail();renderScanControls();renderScan();renderTime();
 }
-function idxLevel(ix){if(ix.level!=null)return{v:ix.level,chg:ix.chg};const m=st.idxMeta[ix.code];return m?{v:m.last,chg:m.chg,close:true}:{v:null}}
-function openIndex(code){const ix=st.idx.find(x=>x.code===code);const L=idxLevel(ix);if(L.v==null)return;
-  openStock("IDX_"+code,{sym:"IDX_"+code,label:ix.name,name:ix.name+(L.close?" · last close":""),price:L.v,chg:L.chg,idx:[],sector:"Index"})}
+function idxLevel(ix){if(ix.level!=null)return{v:ix.level,chg:ix.chg};const m=st.idxMeta[ix.code];return m&&m.tk!=="EQW"?{v:m.last,chg:m.chg,close:true}:{v:null,eqw:!!m}}
+function openIndex(code){const ix=st.idx.find(x=>x.code===code);const L=idxLevel(ix);if(L.v==null&&!L.eqw)return;
+  openStock("IDX_"+code,{sym:"IDX_"+code,label:ix.name,name:ix.name+(L.close?" · last close":""),price:L.v,chg:L.v!=null?L.chg:ix.avg,idx:[],sector:"Index",noLevels:L.v==null})}
 function card(ix){
   const tot=(ix.adv||0)+(ix.dec||0)||1;
   const nm=st.idxMeta[ix.code],L=idxLevel(ix);
@@ -326,7 +326,7 @@ function renderDetail(){
   d.innerHTML=`<div class="section">
     <div class="row between"><button class="link" id="back">← Indices</button><span class="sub">${members(st.sel).length} stocks</span></div>
     <h1 style="margin-top:14px;font-size:20px">${esc(ix.name)}</h1>
-    ${(()=>{const L=idxLevel(ix);return`<div class="row" style="margin-top:8px">${L.v!=null?`<span class="big">${fmt(L.v)}</span>`:""}${chg(L.v!=null?L.chg:ix.avg)}</div>`+(L.v!=null?`<button class="btn" id="idx-gann" style="margin-top:14px">Gann levels & dates for this index →</button>`:"")})()}
+    ${(()=>{const L=idxLevel(ix);return`<div class="row" style="margin-top:8px">${L.v!=null?`<span class="big">${fmt(L.v)}</span>`:""}${chg(L.v!=null?L.chg:ix.avg)}</div>`+(L.v!=null||L.eqw?`<button class="btn" id="idx-gann" style="margin-top:14px">${L.v!=null?"Gann levels & dates":"Gann dates"} for this index →</button>`:"")})()}
     <div class="stats"><div class="stat"><b>${ix.adv??0}</b><span>Up</span></div><div class="stat"><b>${ix.dec??0}</b><span>Down</span></div><div class="stat"><b>${ix.avg!=null?(ix.avg*100).toFixed(1):"–"}</b><span>Avg %</span></div><div class="stat"><b>${ix.cube??0}</b><span>◆ Cube</span></div></div>
   </div>
   <div class="section"><div class="chips" id="sorts">${sorts.map(([k,l])=>`<button class="chip ${st.sort===k?"on":""}" data-k="${k}">${l}</button>`).join("")}</div>
@@ -390,8 +390,8 @@ function renderTime(){
     let rows=Object.values(st.metaMap).filter(m=>m.wa&&m.wa<=t7&&m.wb>=t0);
     if(code){const set=new Set(members(code).map(x=>x.sym));rows=rows.filter(m=>set.has(m.sym))}
     rows.sort((a,b)=>b.ws-a.ws);
-    const ir=Object.values(st.idxMeta).filter(m=>m.wa&&m.wa<=t7&&m.wb>=t0).sort((a,b)=>b.ws-a.ws);
-    const idxHtml=ir.length?`<div class="sub" style="margin:6px 0 2px;font-weight:700">INDICES</div>`+ir.map(m=>{const ix=st.idx.find(i=>i.code===m.code);return`<button class="stock" data-code="${m.code}"><div class="grow"><div class="sy">${esc(ix?ix.name:m.code)}<span class="sc">${m.ws}</span></div><div class="sub">${dshort(m.wa)}${m.wb!==m.wa?" – "+dshort(m.wb):""}</div></div><div class="px">${fmt(m.last)}<br>${chg(m.chg)}</div></button>`}).join("")+`<div class="sub" style="margin:12px 0 2px;font-weight:700">STOCKS</div>`:"";
+    const ir=Object.values(st.idxMeta).filter(m=>m.tk!=="EQW"||true).filter(m=>m.wa&&m.wa<=t7&&m.wb>=t0).sort((a,b)=>b.ws-a.ws);
+    const idxHtml=ir.length?`<div class="sub" style="margin:6px 0 2px;font-weight:700">INDICES</div>`+ir.map(m=>{const ix=st.idx.find(i=>i.code===m.code);return`<button class="stock" data-code="${m.code}"><div class="grow"><div class="sy">${esc(ix?ix.name:m.code)}<span class="sc">${m.ws}</span></div><div class="sub">${dshort(m.wa)}${m.wb!==m.wa?" – "+dshort(m.wb):""}</div></div><div class="px">${m.tk==="EQW"?"":fmt(m.last)+"<br>"+chg(m.chg)}</div></button>`}).join("")+`<div class="sub" style="margin:12px 0 2px;font-weight:700">STOCKS</div>`:"";
     $("#time-wins").innerHTML=idxHtml+rows.slice(0,60).map(m=>`<button class="stock" data-sym="${esc(m.sym)}"><div class="grow"><div class="sy">${esc(m.sym)}<span class="sc">${m.ws}</span></div><div class="nmx">${esc(m.name)}</div><div class="sub">${dshort(m.wa)}${m.wb!==m.wa?" – "+dshort(m.wb):""}</div></div><div class="px">₹${fmt(m.last)}<br>${chg(m.chg)}</div></button>`).join("")||'<div class="empty">No pivot windows this week.</div>';
     $("#time-wins").querySelectorAll(".stock[data-code]").forEach(b=>b.onclick=()=>openIndex(b.dataset.code));
     bindStocks($("#time-wins"));
@@ -407,7 +407,7 @@ function renderTime(){
 /* ---------- stock sheet: time & astro ---------- */
 const TF={W:"weekly",D:"daily",ATH:"all-time",ATL:"all-time","52W":"52-week"};
 function why(w){const [cyc,side,tf,d]=w;const u=cyc.endsWith("w")?" weeks":" days";return`${cyc.slice(0,-1)}${u} from ${TF[tf]} ${side==="H"?"high":"low"} ${dfmt(d)}`}
-async function stockTime(sym,price){
+async function stockTime(sym,price,noLv){
   const box=$("#sh-time");if(!box)return;
   let d;try{const r=await fetch(DATA+"s/"+encodeURIComponent(sym)+".json?d="+(st.meta?.asof||""));if(!r.ok)throw 0;d=await r.json()}catch(e){box.innerHTML=`<div class="section" style="margin:14px 0 0;box-shadow:var(--shadow-sm)"><h2>Gann time</h2><div class="empty">${st.meta?"No history for this stock.":"Appears after the first nightly run."}</div></div>`;return}
   const t=iso(new Date());
@@ -415,7 +415,7 @@ async function stockTime(sym,price){
   let h=`<div class="section" style="margin:14px 0 0;box-shadow:var(--shadow-sm)"><h2>Pivot windows ahead</h2><div class="sub" style="margin-bottom:4px">Gann day and week counts from major highs and lows, stacking on the same dates.</div>`;
   h+=wins.map(w=>`<div class="win ${w.a<=t&&w.b>=t?"now":""}"><div class="wd">${dshort(w.a)}${w.b!==w.a?" – "+dfmt(w.b):", "+new Date(w.a).getFullYear()}<span class="sc">score ${w.sc} · ${w.n} cycles</span></div><div class="why">${w.why.slice(0,3).map(why).map(esc).join("<br>")}</div></div>`).join("")||'<div class="empty">No strong windows in the next year.</div>';
   h+=`</div><div class="section" style="margin:14px 0 0;box-shadow:var(--shadow-sm)"><h2>Major highs & lows</h2>`;
-  h+=d.piv.slice().reverse().map(p=>`<div class="ar"><span class="k">${p[0]==="H"?"▲ High":"▼ Low"} <span class="sub">${TF[p[1]]}</span></span><span class="v">${dfmt(p[2])}</span><span class="v" style="width:84px">₹${fmt(p[3])}</span></div>`).join("");
+  h+=d.piv.slice().reverse().map(p=>`<div class="ar"><span class="k">${p[0]==="H"?"▲ High":"▼ Low"} <span class="sub">${TF[p[1]]}</span></span><span class="v">${dfmt(p[2])}</span>${noLv?"":`<span class="v" style="width:84px">${sym.startsWith("IDX_")?"":"₹"}${fmt(p[3])}</span>`}</div>`).join("");
   h+=`<div class="sub" style="margin-top:6px">History from ${dfmt(d.first)} · data as of ${dfmt(d.asof)}</div></div>`;
   const cats=Object.entries(d.astro||{}).map(([k,v])=>({k,n:v[0],hit:v[1],base:v[2],mv:v[3],mvAll:v[4],rate:v[1]/v[0]})).map(x=>({...x,lift:x.base?x.rate/x.base:0})).sort((a,b)=>b.lift-a.lift);
   if(cats.length){
@@ -439,23 +439,23 @@ function ladder(title,keys,s,r){
 function openStock(sym,ov){
   let s=ov||st.uni.find(x=>x.sym===sym),r=ov?null:st.lv[sym];
   if(!s||s.price==null){const m=st.metaMap[sym];if(!m&&!s)return;if(m){s={...(s||{idx:[],sector:""}),sym,name:m.name,price:m.last,chg:m.chg};}}
-  if((!r||!num(r["Primary cube −1"]))&&s.price){r=calcLevels(s.price);s.sig=cubeSignal(s.price,r)}
+  if(!s.noLevels&&(!r||!num(r["Primary cube −1"]))&&s.price){r=calcLevels(s.price);s.sig=cubeSignal(s.price,r)}
   const pos=s.hi&&s.lo&&s.hi>s.lo&&s.price!=null?Math.min(100,Math.max(0,(s.price-s.lo)/(s.hi-s.lo)*100)):null;
   const idxNames=(s.idx||[]).map(c=>st.idx.find(i=>i.code===c)?.name).filter(Boolean);
   let h=`<div class="grip"></div><div class="row between"><div class="grow"><h1 style="font-size:20px">${esc(s.label||s.sym)}</h1><div class="sub">${esc(s.name||"")}${s.sector?" · "+esc(s.sector):""}</div></div><button class="icon-btn" id="sh-x" aria-label="Close">✕</button></div>
-  <div class="row" style="margin-top:12px"><span class="big">${ov?"":"₹"}${fmt(s.price)}</span>${chg(s.chg)}</div>
+  <div class="row" style="margin-top:12px">${s.price!=null?`<span class="big">${ov?"":"₹"}${fmt(s.price)}</span>`:""}${chg(s.chg)}</div>
   ${s.sig?`<div style="margin-top:10px">${sigTag(s.sig,tierDist(s,s.sig))} <span class="sub">${r&&!ov?esc(r["Mode"])+" stock":""}</span></div>`:(r?`<div class="sub" style="margin-top:8px">${ov?"Index":esc(r["Mode"])+" stock"} · no cube within ${(st.band*100).toFixed(0)}%</div>`:"")}
   ${pos!=null?`<div class="sub" style="margin-top:14px">52-week range</div><div class="rng"><i style="left:${pos}%"></i></div><div class="row between sub"><span>₹${fmt(s.lo)}</span><span>₹${fmt(s.hi)}</span></div>`:""}`;
   if(r&&s.price){
     h+=ladder("Cube levels",[...LV_KEYS["Primary cube"],...LV_KEYS["Secondary cube"],...LV_KEYS["Tertiary cube"]],s,r);
     h+=ladder("Squares & Square of 9",["Square −1","Square +1","Sq9 −360°","Sq9 −180°","Sq9 −90°","Sq9 +90°","Sq9 +180°","Sq9 +360°"],s,r);
     h+=ladder("Square of 12",["Sq12 −120°","Sq12 −60°","Sq12 −30°","Sq12 +30°","Sq12 +60°","Sq12 +120°"],s,r);
-  } else h+=`<div class="empty" style="margin-top:14px">No price from Google Finance for this stock.</div>`;
+  } else h+=`<div class="empty" style="margin-top:14px">${s.noLevels?"No real index level is available, so cube levels are not shown. The Gann dates below come from an equal-weight version of this index built from its stocks.":"No price from Google Finance for this stock."}</div>`;
   h+=`<div id="sh-time"><div class="empty" style="margin-top:14px">Loading Gann time…</div></div>`;
   if(idxNames.length)h+=`<div class="sub" style="margin-top:14px">In: ${esc(idxNames.join(", "))}</div>`;
   $("#sheet").innerHTML=h;$("#sheet-bg").classList.add("on");$("#sheet").scrollTop=0;
   $("#sh-x").onclick=closeSheet;
-  stockTime(sym,s.price);
+  stockTime(sym,s.price,!!s.noLevels);
 }
 function closeSheet(){$("#sheet-bg").classList.remove("on")}
 $("#sheet-bg").onclick=e=>{if(e.target.id==="sheet-bg")closeSheet()};
