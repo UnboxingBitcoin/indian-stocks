@@ -430,9 +430,9 @@ async function stockTime(sym,price){
 /* ---------- stock sheet ---------- */
 function ladder(title,keys,s,r){
   const rows=keys.map(k=>({k,v:num(r[k])})).filter(x=>x.v!=null);
-  rows.push({k:"Price now",v:s.price,now:true});rows.sort((a,b)=>b.v-a.v);
+  rows.push({k:"Price now",v:s.price,now:true,ix:!!s.label});rows.sort((a,b)=>b.v-a.v);
   return`<div class="section" style="margin:14px 0 0;box-shadow:var(--shadow-sm)"><h2>${title}</h2><div class="lad">${rows.map(x=>{
-    if(x.now)return`<div class="lr now"><span class="k"><b>● Price now</b></span><span class="v">₹${fmt(x.v)}</span><span class="d"></span></div>`;
+    if(x.now)return`<div class="lr now"><span class="k"><b>● Price now</b></span><span class="v">${x.ix?"":"₹"}${fmt(x.v)}</span><span class="d"></span></div>`;
     const d=x.v/s.price-1,hit=Math.abs(d)<=st.band;
     const tc=x.k.startsWith("Primary")?"tp":x.k.startsWith("Secondary")?"ts":x.k.startsWith("Tertiary")?"tt":"";
     return`<div class="lr ${tc} ${hit?"hit":""}"><span class="k">${hit?"<b>":""}${esc(x.k)}${hit?"</b>":""}</span><span class="v">${fmt(x.v)}</span><span class="d">${d>0?"+":""}${(d*100).toFixed(2)}%</span></div>`}).join("")}</div></div>`}
@@ -443,8 +443,8 @@ function openStock(sym,ov){
   const pos=s.hi&&s.lo&&s.hi>s.lo&&s.price!=null?Math.min(100,Math.max(0,(s.price-s.lo)/(s.hi-s.lo)*100)):null;
   const idxNames=(s.idx||[]).map(c=>st.idx.find(i=>i.code===c)?.name).filter(Boolean);
   let h=`<div class="grip"></div><div class="row between"><div class="grow"><h1 style="font-size:20px">${esc(s.label||s.sym)}</h1><div class="sub">${esc(s.name||"")}${s.sector?" · "+esc(s.sector):""}</div></div><button class="icon-btn" id="sh-x" aria-label="Close">✕</button></div>
-  <div class="row" style="margin-top:12px"><span class="big">₹${fmt(s.price)}</span>${chg(s.chg)}</div>
-  ${s.sig?`<div style="margin-top:10px">${sigTag(s.sig,tierDist(s,s.sig))} <span class="sub">${r?esc(r["Mode"])+" stock":""}</span></div>`:(r?`<div class="sub" style="margin-top:8px">${esc(r["Mode"])} stock · no cube within ${(st.band*100).toFixed(0)}%</div>`:"")}
+  <div class="row" style="margin-top:12px"><span class="big">${ov?"":"₹"}${fmt(s.price)}</span>${chg(s.chg)}</div>
+  ${s.sig?`<div style="margin-top:10px">${sigTag(s.sig,tierDist(s,s.sig))} <span class="sub">${r&&!ov?esc(r["Mode"])+" stock":""}</span></div>`:(r?`<div class="sub" style="margin-top:8px">${ov?"Index":esc(r["Mode"])+" stock"} · no cube within ${(st.band*100).toFixed(0)}%</div>`:"")}
   ${pos!=null?`<div class="sub" style="margin-top:14px">52-week range</div><div class="rng"><i style="left:${pos}%"></i></div><div class="row between sub"><span>₹${fmt(s.lo)}</span><span>₹${fmt(s.hi)}</span></div>`:""}`;
   if(r&&s.price){
     h+=ladder("Cube levels",[...LV_KEYS["Primary cube"],...LV_KEYS["Secondary cube"],...LV_KEYS["Tertiary cube"]],s,r);
