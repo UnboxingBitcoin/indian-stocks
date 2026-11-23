@@ -222,7 +222,7 @@ const SHEET_ID="1Di81rOTexQPeIiW3l4VHlXe49gyeuPJ_lgQGCGGoDcs";
 const GROUPS=[["Broad market",["N50","SENSEX","NN50","N100","N200","N500"]],["Size",["MID150","SML250","MIC250"]],["Sectors & themes",null]];
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const st={meta:null,astro:null,metaMap:{},idx:[],uni:[],lv:{},band:.01,sel:null,sort:"chg",q:"",tier:"Primary cube",scanIdx:"",loadedAt:null};
+const st={idxMeta:{},meta:null,astro:null,metaMap:{},idx:[],uni:[],lv:{},band:.01,sel:null,sort:"chg",q:"",tier:"Primary cube",scanIdx:"",loadedAt:null};
 
 /* ---------- data ---------- */
 function parseCSV(t){const rows=[];let r=[],f="",q=false;for(let i=0;i<t.length;i++){const c=t[i];
@@ -245,6 +245,8 @@ async function loadNightly(){
     const [m,a]=await Promise.all([fetch(DATA+"meta.json?d="+new Date().toISOString().slice(0,10)).then(r=>r.ok?r.json():null),fetch(DATA+"astro.json?d="+new Date().toISOString().slice(0,10)).then(r=>r.ok?r.json():null)]);
     st.meta=m;st.astro=a;st.metaMap={};
     if(m)m.rows.forEach(r=>{st.metaMap[r[0]]={sym:r[0],name:r[1],last:r[2],chg:r[3],wa:r[4],wb:r[5],ws:r[6]}});
+    st.idxMeta={};if(m&&m.idx)m.idx.forEach(r=>{st.idxMeta[r[1]]={sym:r[0],code:r[1],last:r[2],chg:r[3],wa:r[4],wb:r[5],ws:r[6]}});
+    if(st.idx.length){renderHome();if(st.sel)renderDetail()}
   }catch(e){}
   renderTime();
 }
@@ -279,11 +281,15 @@ function renderAll(){
   $("#loaded-at").textContent=`Last loaded ${t.toLocaleString("en-IN")} · ${st.uni.length} stocks, ${st.uni.filter(x=>x.price!=null).length} with prices`;
   renderHome();if(st.sel)renderDetail();renderScanControls();renderScan();renderTime();
 }
+function idxLevel(ix){if(ix.level!=null)return{v:ix.level,chg:ix.chg};const m=st.idxMeta[ix.code];return m?{v:m.last,chg:m.chg,close:true}:{v:null}}
+function openIndex(code){const ix=st.idx.find(x=>x.code===code);const L=idxLevel(ix);if(L.v==null)return;
+  openStock("IDX_"+code,{sym:"IDX_"+code,label:ix.name,name:ix.name+(L.close?" · last close":""),price:L.v,chg:L.chg,idx:[],sector:"Index"})}
 function card(ix){
   const tot=(ix.adv||0)+(ix.dec||0)||1;
-  const lvl=ix.level!=null?fmt(ix.level):`<small>no index quote</small>`;
-  const c=ix.level!=null?ix.chg:ix.avg;
-  return`<button class="card" data-code="${ix.code}"><div class="nm">${esc(ix.name)}</div><div class="lv">${lvl}</div>${chg(c)}${ix.level==null?'<div class="sub" style="font-size:10px">avg of stocks</div>':""}
+  const nm=st.idxMeta[ix.code],L=idxLevel(ix);
+  const lvl=L.v!=null?fmt(L.v)+(L.close?` <small>close</small>`:""):`<small>no index quote</small>`;
+  const c=L.v!=null?L.chg:ix.avg;
+  return`<button class="card" data-code="${ix.code}"><div class="nm">${esc(ix.name)}</div><div class="lv">${lvl}</div>${chg(c)}${L.v==null?'<div class="sub" style="font-size:10px">avg of stocks</div>':""}
   <div class="ad"><i class="a" style="width:${(ix.adv||0)/tot*100}%"></i><i class="d" style="width:${(ix.dec||0)/tot*100}%"></i></div>
   <div class="ft"><span>▲${ix.adv??0} ▼${ix.dec??0}</span><span>◆${ix.cube??0}</span></div></button>`}
 function renderHome(){
@@ -309,7 +315,7 @@ function sortList(a){
 function stockRow(s){
   return`<button class="stock" data-sym="${esc(s.sym)}"><div class="grow"><div class="sy">${esc(s.sym)}</div><div class="nmx">${esc(s.name||s.sector)}</div>${sigTag(s.sig,s.cubeDist)}</div>
   <div class="px">${s.price!=null?"₹"+fmt(s.price):"–"}<br>${chg(s.chg)}</div></button>`}
-function bindStocks(root){root.querySelectorAll(".stock").forEach(b=>b.onclick=()=>openStock(b.dataset.sym))}
+function bindStocks(root){root.querySelectorAll(".stock[data-sym]").forEach(b=>b.onclick=()=>openStock(b.dataset.sym))}
 function renderDetail(){
   const ix=st.idx.find(x=>x.code===st.sel);if(!ix)return;
   $("#idx-home").style.display="none";const d=$("#idx-detail");d.style.display="block";
@@ -320,12 +326,13 @@ function renderDetail(){
   d.innerHTML=`<div class="section">
     <div class="row between"><button class="link" id="back">← Indices</button><span class="sub">${members(st.sel).length} stocks</span></div>
     <h1 style="margin-top:14px;font-size:20px">${esc(ix.name)}</h1>
-    <div class="row" style="margin-top:8px">${ix.level!=null?`<span class="big">${fmt(ix.level)}</span>`:""}${chg(ix.level!=null?ix.chg:ix.avg)}</div>
+    ${(()=>{const L=idxLevel(ix);return`<div class="row" style="margin-top:8px">${L.v!=null?`<span class="big">${fmt(L.v)}</span>`:""}${chg(L.v!=null?L.chg:ix.avg)}</div>`+(L.v!=null?`<button class="btn" id="idx-gann" style="margin-top:14px">Gann levels & dates for this index →</button>`:"")})()}
     <div class="stats"><div class="stat"><b>${ix.adv??0}</b><span>Up</span></div><div class="stat"><b>${ix.dec??0}</b><span>Down</span></div><div class="stat"><b>${ix.avg!=null?(ix.avg*100).toFixed(1):"–"}</b><span>Avg %</span></div><div class="stat"><b>${ix.cube??0}</b><span>◆ Cube</span></div></div>
   </div>
   <div class="section"><div class="chips" id="sorts">${sorts.map(([k,l])=>`<button class="chip ${st.sort===k?"on":""}" data-k="${k}">${l}</button>`).join("")}</div>
   <input id="q" placeholder="Search symbol or name" value="${esc(st.q)}" style="margin-top:12px" autocomplete="off">
   <div id="stocks" style="margin-top:6px">${list.map(stockRow).join("")||'<div class="empty">No stocks.</div>'}</div></div>`;
+  $("#idx-gann")&&($("#idx-gann").onclick=()=>openIndex(st.sel));
   $("#back").onclick=()=>{st.sel=null;d.style.display="none";$("#idx-home").style.display="block"};
   d.querySelectorAll("#sorts .chip").forEach(b=>b.onclick=()=>{st.sort=b.dataset.k;renderDetail()});
   $("#q").oninput=e=>{st.q=e.target.value;const p=e.target.selectionStart;renderDetail();const n=$("#q");n.focus();n.setSelectionRange(p,p)};
@@ -383,7 +390,10 @@ function renderTime(){
     let rows=Object.values(st.metaMap).filter(m=>m.wa&&m.wa<=t7&&m.wb>=t0);
     if(code){const set=new Set(members(code).map(x=>x.sym));rows=rows.filter(m=>set.has(m.sym))}
     rows.sort((a,b)=>b.ws-a.ws);
-    $("#time-wins").innerHTML=rows.slice(0,60).map(m=>`<button class="stock" data-sym="${esc(m.sym)}"><div class="grow"><div class="sy">${esc(m.sym)}<span class="sc">${m.ws}</span></div><div class="nmx">${esc(m.name)}</div><div class="sub">${dshort(m.wa)}${m.wb!==m.wa?" – "+dshort(m.wb):""}</div></div><div class="px">₹${fmt(m.last)}<br>${chg(m.chg)}</div></button>`).join("")||'<div class="empty">No pivot windows this week.</div>';
+    const ir=Object.values(st.idxMeta).filter(m=>m.wa&&m.wa<=t7&&m.wb>=t0).sort((a,b)=>b.ws-a.ws);
+    const idxHtml=ir.length?`<div class="sub" style="margin:6px 0 2px;font-weight:700">INDICES</div>`+ir.map(m=>{const ix=st.idx.find(i=>i.code===m.code);return`<button class="stock" data-code="${m.code}"><div class="grow"><div class="sy">${esc(ix?ix.name:m.code)}<span class="sc">${m.ws}</span></div><div class="sub">${dshort(m.wa)}${m.wb!==m.wa?" – "+dshort(m.wb):""}</div></div><div class="px">${fmt(m.last)}<br>${chg(m.chg)}</div></button>`}).join("")+`<div class="sub" style="margin:12px 0 2px;font-weight:700">STOCKS</div>`:"";
+    $("#time-wins").innerHTML=idxHtml+rows.slice(0,60).map(m=>`<button class="stock" data-sym="${esc(m.sym)}"><div class="grow"><div class="sy">${esc(m.sym)}<span class="sc">${m.ws}</span></div><div class="nmx">${esc(m.name)}</div><div class="sub">${dshort(m.wa)}${m.wb!==m.wa?" – "+dshort(m.wb):""}</div></div><div class="px">₹${fmt(m.last)}<br>${chg(m.chg)}</div></button>`).join("")||'<div class="empty">No pivot windows this week.</div>';
+    $("#time-wins").querySelectorAll(".stock[data-code]").forEach(b=>b.onclick=()=>openIndex(b.dataset.code));
     bindStocks($("#time-wins"));
   }
   if(st.astro){
@@ -426,13 +436,13 @@ function ladder(title,keys,s,r){
     const d=x.v/s.price-1,hit=Math.abs(d)<=st.band;
     const tc=x.k.startsWith("Primary")?"tp":x.k.startsWith("Secondary")?"ts":x.k.startsWith("Tertiary")?"tt":"";
     return`<div class="lr ${tc} ${hit?"hit":""}"><span class="k">${hit?"<b>":""}${esc(x.k)}${hit?"</b>":""}</span><span class="v">${fmt(x.v)}</span><span class="d">${d>0?"+":""}${(d*100).toFixed(2)}%</span></div>`}).join("")}</div></div>`}
-function openStock(sym){
-  let s=st.uni.find(x=>x.sym===sym),r=st.lv[sym];
+function openStock(sym,ov){
+  let s=ov||st.uni.find(x=>x.sym===sym),r=ov?null:st.lv[sym];
   if(!s||s.price==null){const m=st.metaMap[sym];if(!m&&!s)return;if(m){s={...(s||{idx:[],sector:""}),sym,name:m.name,price:m.last,chg:m.chg};}}
   if((!r||!num(r["Primary cube −1"]))&&s.price){r=calcLevels(s.price);s.sig=cubeSignal(s.price,r)}
   const pos=s.hi&&s.lo&&s.hi>s.lo&&s.price!=null?Math.min(100,Math.max(0,(s.price-s.lo)/(s.hi-s.lo)*100)):null;
   const idxNames=(s.idx||[]).map(c=>st.idx.find(i=>i.code===c)?.name).filter(Boolean);
-  let h=`<div class="grip"></div><div class="row between"><div class="grow"><h1 style="font-size:20px">${esc(s.sym)}</h1><div class="sub">${esc(s.name||"")}${s.sector?" · "+esc(s.sector):""}</div></div><button class="icon-btn" id="sh-x" aria-label="Close">✕</button></div>
+  let h=`<div class="grip"></div><div class="row between"><div class="grow"><h1 style="font-size:20px">${esc(s.label||s.sym)}</h1><div class="sub">${esc(s.name||"")}${s.sector?" · "+esc(s.sector):""}</div></div><button class="icon-btn" id="sh-x" aria-label="Close">✕</button></div>
   <div class="row" style="margin-top:12px"><span class="big">₹${fmt(s.price)}</span>${chg(s.chg)}</div>
   ${s.sig?`<div style="margin-top:10px">${sigTag(s.sig,tierDist(s,s.sig))} <span class="sub">${r?esc(r["Mode"])+" stock":""}</span></div>`:(r?`<div class="sub" style="margin-top:8px">${esc(r["Mode"])} stock · no cube within ${(st.band*100).toFixed(0)}%</div>`:"")}
   ${pos!=null?`<div class="sub" style="margin-top:14px">52-week range</div><div class="rng"><i style="left:${pos}%"></i></div><div class="row between sub"><span>₹${fmt(s.lo)}</span><span>₹${fmt(s.hi)}</span></div>`:""}`;

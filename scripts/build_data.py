@@ -24,6 +24,19 @@ D_K, W_K = 20, 13            # swing window: daily pivots = highest/lowest withi
 D_YEARS = 3                  # daily pivots from the last 3 years; weekly pivots from full history
 TURN_K, TURN_WIN = 10, 2     # astro backtest: turning point = ±10-day swing, hit if within ±2 trading days
 
+# Yahoo Finance tickers for each index (first one that returns data is used)
+INDEX_TICKERS = {
+    "N50": ["^NSEI"], "SENSEX": ["^BSESN"], "NN50": ["^NSMIDCP", "NIFTY_NEXT_50.NS"], "N100": ["^CNX100"],
+    "N200": ["^CNX200"], "N500": ["^CRSLDX"], "MID150": ["NIFTYMIDCAP150.NS", "NIFTY_MIDCAP_150.NS"],
+    "SML250": ["NIFTYSMLCAP250.NS", "NIFTY_SMLCAP_250.NS"], "MIC250": ["NIFTY_MICROCAP250.NS", "NIFTYMICROCAP250.NS"],
+    "BANK": ["^NSEBANK"], "PVTBANK": ["NIFTY_PVT_BANK.NS"], "PSUBANK": ["^CNXPSUBANK"], "FIN": ["NIFTY_FIN_SERVICE.NS"],
+    "IT": ["^CNXIT"], "AUTO": ["^CNXAUTO"], "ENERGY": ["^CNXENERGY"], "OILGAS": ["NIFTY_OIL_AND_GAS.NS"],
+    "FMCG": ["^CNXFMCG"], "PHARMA": ["^CNXPHARMA"], "HEALTH": ["NIFTY_HEALTHCARE.NS"], "METAL": ["^CNXMETAL"],
+    "REALTY": ["^CNXREALTY"], "MEDIA": ["^CNXMEDIA"], "CDUR": ["NIFTY_CONSR_DURBL.NS"], "CONSUMP": ["^CNXCONSUM"],
+    "INFRA": ["^CNXINFRA"], "PSE": ["^CNXPSE"], "DEFENCE": ["NIFTY_IND_DEFENCE.NS"], "CAPMKT": ["NIFTY_CAPITAL_MKT.NS"],
+    "CHEM": ["NIFTY_CHEMICALS.NS"],
+}
+
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36"}
 
 
@@ -89,6 +102,40 @@ def swings(h, l, k, confirm=True):
         if lv[i] == lv[a:b].min():
             lo.append(i)
     return hi, lo
+
+
+def index_history(cands):
+    import yfinance as yf
+    for t in cands:
+        try:
+            d = yf.download(t, period="max", interval="1d", auto_adjust=False, progress=False, timeout=60)
+            if isinstance(d.columns, pd.MultiIndex):
+                d.columns = d.columns.get_level_values(0)
+            d = d[["Open", "High", "Low", "Close"]].dropna()
+            d = d[(d["High"] > 0) & (d["Low"] > 0)]
+            if len(d) >= 60:
+                d.index = pd.to_datetime(d.index).tz_localize(None)
+                return t, d
+        except Exception as e:
+            log("index fail", t, e)
+    return None, None
+
+
+def record(s, name, d, ev_hist):
+    piv = pivots(d)
+    win = windows(piv)
+    st = astro_stats(d, ev_hist)
+    last, prev = float(d["Close"].iloc[-1]), float(d["Close"].iloc[-2])
+    major = [p for p in piv if p[1] in ("W", "ATH", "ATL", "52W")][-12:]
+    rec = {"s": s, "n": name, "asof": d.index[-1].date().isoformat(), "last": round(last, 2),
+           "first": d.index[0].date().isoformat(),
+           "piv": [[p[0], p[1], p[2].isoformat(), round(p[3], 2)] for p in major],
+           "win": win, "astro": st}
+    with open(os.path.join(OUT, "s", f"{s}.json"), "w") as f:
+        json.dump(rec, f, separators=(",", ":"))
+    nxt = next((w for w in win if w["b"] >= TODAY.isoformat()), None)
+    return [s, name, round(last, 2), round(last / prev - 1, 4) if prev else 0,
+            nxt["a"] if nxt else "", nxt["b"] if nxt else "", nxt["sc"] if nxt else 0]
 
 
 def pivots(d):
@@ -212,6 +259,16 @@ def main():
     press = [e for e in seasonal(TODAY.year - 1, TODAY.year + 2) if (TODAY - dt.timedelta(days=30)).isoformat() <= e["d"]]
     json.dump({"asof": TODAY.isoformat(), "events": up, "pressure": press}, open(os.path.join(OUT, "astro.json"), "w"), separators=(",", ":"))
 
+    idx_rows = []
+    for code, cands in INDEX_TICKERS.items():
+        t, d = index_history(cands)
+        log("index", code, t, None if d is None else len(d))
+        if d is not None:
+            try:
+                row = record("IDX_" + code, code, d, ev_hist)
+                idx_rows.append(row + [t])
+            except Exception as e:
+                log("index record fail", code, e)
     names = nse_symbols()
     syms = sorted(names)
     meta = []
@@ -222,24 +279,11 @@ def main():
         log(f"{b + len(batch)}/{len(syms)} got {len(hist)}")
         for s, d in hist.items():
             try:
-                piv = pivots(d)
-                win = windows(piv)
-                st = astro_stats(d, ev_hist)
-                last, prev = float(d["Close"].iloc[-1]), float(d["Close"].iloc[-2])
-                major = [p for p in piv if p[1] in ("W", "ATH", "ATL", "52W")][-12:]
-                rec = {"s": s, "n": names.get(s, s), "asof": d.index[-1].date().isoformat(), "last": round(last, 2),
-                       "first": d.index[0].date().isoformat(),
-                       "piv": [[p[0], p[1], p[2].isoformat(), round(p[3], 2)] for p in major],
-                       "win": win, "astro": st}
-                with open(os.path.join(OUT, "s", f"{s}.json"), "w") as f:
-                    json.dump(rec, f, separators=(",", ":"))
-                nxt = next((w for w in win if w["b"] >= TODAY.isoformat()), None)
-                meta.append([s, names.get(s, s), round(last, 2), round(last / prev - 1, 4) if prev else 0,
-                             nxt["a"] if nxt else "", nxt["b"] if nxt else "", nxt["sc"] if nxt else 0])
+                meta.append(record(s, names.get(s, s), d, ev_hist))
             except Exception as e:
                 log("fail", s, e)
         time.sleep(1.5)
-    json.dump({"asof": TODAY.isoformat(), "cols": ["sym", "name", "last", "chg", "winA", "winB", "winScore"], "rows": meta},
+    json.dump({"asof": TODAY.isoformat(), "cols": ["sym", "name", "last", "chg", "winA", "winB", "winScore"], "rows": meta, "idx": idx_rows},
               open(os.path.join(OUT, "meta.json"), "w"), separators=(",", ":"))
     log("done", len(meta), "stocks")
     if len(meta) < 200:
