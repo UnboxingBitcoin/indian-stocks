@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Indian Market · Gann Screener</title>
+<link rel="icon" id="fav" href="favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" id="tc" content="#cfe8b0">
+<script>try{var _t=localStorage.getItem("igs-theme");if(_t==="noir"||_t==="mono")document.getElementById("tc").setAttribute("content",_t==="noir"?"#000000":"#ffffff")}catch(e){}</script>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Gann India">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="hdr row between">
+    <a class="brand" href="./" style="color:inherit;text-decoration:none" aria-label="Home"><img id="brand-logo" src="logo.svg" alt=""><div><h1>India</h1><div class="sub" id="hdr-sub">Loading…</div></div></a>
+    <div class="row" style="gap:8px">
+      <a class="icon-btn" href="./" aria-label="Home" style="color:var(--ink)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg></a>
+      <button class="icon-btn" id="refresh" aria-label="Refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/></svg></button>
+      <button class="icon-btn" id="quick-theme" aria-label="Theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
+    </div>
+  </div>
+  <div id="msg"></div>
+
+  <!-- Indices -->
+  <section class="view on" id="v-indices">
+    <div id="idx-home"></div>
+    <div id="idx-detail" style="display:none"></div>
+  </section>
+
+  <!-- Levels scanner -->
+  <section class="view" id="v-scan">
+    <div class="section">
+      <h2>Cube level scanner</h2>
+      <div class="sub" style="margin-bottom:10px">Stocks trading within the band of a Gann cube level right now.</div>
+      <div class="chips" id="scan-tier"></div>
+      <div style="margin-top:12px"><select id="scan-idx"></select></div>
+    </div>
+    <div class="section"><div class="row between"><h2 id="scan-title">Results</h2><span class="sub" id="scan-count"></span></div><div id="scan-list"></div></div>
+  </section>
+
+  <!-- Time -->
+  <section class="view" id="v-time">
+    <div class="section"><h2>Pivot windows this week</h2><div class="sub" style="margin-bottom:8px">Stocks where several Gann time cycles from their major highs and lows land in the next 7 days. Higher score = more cycles stacking.</div>
+      <select id="time-idx" style="margin-bottom:6px"></select><div id="time-wins"><div class="empty">Loading…</div></div></div>
+    <div class="section"><h2>Astro events ahead</h2><div id="time-astro"><div class="empty">Loading…</div></div>
+      <div class="sub" style="margin-top:10px">Full calendar: <a href="https://unboxingbitcoin.github.io/astro-calendar/#feed" style="color:inherit">Krishna Mukh astro calendar</a></div></div>
+    <div class="section"><h2>Gann pressure dates</h2><div id="time-press"></div></div>
+  </section>
+
+  <!-- More -->
+  <section class="view" id="v-more">
+    <div class="section"><h2>Theme</h2><div class="themes" id="themes"></div></div>
+    <div class="section">
+      <h2>How levels work</h2>
+      <ul class="plain">
+        <li><b>Primary cube</b> n³: 1 level above, 1 below.</li>
+        <li><b>Secondary cube</b> n³/10: 3 above, 3 below.</li>
+        <li><b>Tertiary cube</b> n³/100: 3 above, 3 below.</li>
+        <li>Stocks under the cheap-stock price (set in the sheet, ₹100 now) shift down one step: n³/10, n³/100, n³/1000.</li>
+        <li><b>Square of 9</b>: (√P ± 0.5, 1, 2)² for 90°, 180°, 360°.</li>
+        <li><b>Square of 12</b>: (√P ± 1/6, 1/3, 2/3)² for 30°, 60°, 120°.</li>
+        <li>The cube signal checks primary, then secondary, then tertiary, within the near-level band (1% now).</li>
+      </ul>
+    </div>
+    <div class="section">
+      <h2>Data</h2>
+      <div style="font-size:14px">Prices come from Google Finance through the screener's Google Sheet, delayed up to about 20 minutes. Index lists are NSE's official constituents (Nov 2026). The page refreshes every 5 minutes while open.</div>
+      <div class="sub" id="loaded-at" style="margin-top:8px"></div>
+      <div style="font-size:14px;margin-top:8px">Pivot windows and astro history come from a nightly job (Mon–Fri, about 6:10 pm IST) that reads every NSE stock's full daily history.</div>
+      <details><summary>How pivot windows work</summary><ul class="plain"><li>Major pivots: weekly swing highs and lows (highest or lowest within ±13 weeks, full history), daily swings (±20 days, last 3 years), all-time and 52-week high and low.</li><li>From each pivot the job counts 30, 45, 49, 60, 63, 64, 72, 84, 90, 98, 100, 108, 120, 135, 144, 147, 180, 196, 216, 225, 240, 270, 288, 315, 343, 360, 432, 512, 540, 576, 720, 729, 1000, 1080 and 1440 days and weeks ahead.</li><li>Dates within 4 days of each other are grouped into one window. Score = number of cycles, with weekly and all-time pivots and week counts weighted higher.</li></ul></details>
+      <details><summary>How astro history works</summary><ul class="plain"><li>Events since 2005 from Swiss Ephemeris, Lahiri sidereal for sign changes: eclipses, new and full moons, stations, ingress of Mars, Jupiter, Saturn, Rahu and the outer planets, and aspects between the slow planets.</li><li>A hit = the stock made a turning point (highest or lowest within ±10 days) within 2 trading days of the event.</li><li>Base = how often any random day is that close to a turning point for the same stock. Only categories with 5+ past events are shown. A rate well above base, over many events, is what matters.</li></ul></details>
+    </div>
+  </section>
+  <div class="foot">Not investment advice. Levels are mechanical Gann calculations.</div>
+</div>
+
+<nav><div class="in">
+  <button data-v="indices" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Indices</button>
+  <button data-v="scan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/></svg>Cubes</button>
+  <button data-v="time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Time</button>
+  <button data-v="more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>More</button>
+</div></nav>
+
+<div class="sheet-bg" id="sheet-bg"><div class="sheet" id="sheet"></div></div>
+
+<script>
+const DATA="https://raw.githubusercontent.com/UnboxingBitcoin/indian-stocks/data/";
+const SHEET_ID="1Di81rOTexQPeIiW3l4VHlXe49gyeuPJ_lgQGCGGoDcs";
+const GROUPS=[["Broad market",["N50","SENSEX","NN50","N100","N200","N500"]],["Size",["MID150","SML250","MIC250"]],["Sectors & themes",null]];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const st={idxMeta:{},meta:null,astro:null,metaMap:{},idx:[],uni:[],lv:{},band:.01,sel:null,sort:"chg",q:"",tier:"Primary cube",scanIdx:"",loadedAt:null};
+
+/* ---------- data ---------- */
+function parseCSV(t){const rows=[];let r=[],f="",q=false;for(let i=0;i<t.length;i++){const c=t[i];
+ if(q){if(c=='"'){if(t[i+1]=='"'){f+='"';i++}else q=false}else f+=c}
+ else if(c=='"')q=true;else if(c==','){r.push(f);f=""}else if(c=='\n'){r.push(f);rows.push(r);r=[];f=""}else if(c!='\r')f+=c}
+ if(f!==""||r.length){r.push(f);rows.push(r)}return rows}
+function num(s){if(s==null)return null;s=String(s).trim();if(!s)return null;const pct=s.endsWith("%");const v=parseFloat(s.replace(/[₹,%\s]/g,""));if(isNaN(v))return null;return pct?v/100:v}
+async function getSheet(name){
+  const u=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(name)}&headers=1&_=${Date.now()}`;
+  const r=await fetch(u);if(!r.ok)throw new Error(r.status);const t=await r.text();
+  if(t.trim().startsWith("<"))throw new Error("not shared");
+  const rows=parseCSV(t);const h=rows.shift().map(x=>x.trim());
+  return rows.filter(x=>x.length>1&&x[0]).map(x=>Object.fromEntries(h.map((k,i)=>[k,x[i]])));
+}
+async function getRaw(name){
+  const u=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(name)}&headers=0&_=${Date.now()}`;
+  const r=await fetch(u);if(!r.ok)throw new Error(r.status);const t=await r.text();if(t.trim().startsWith("<"))throw new Error("not shared");return parseCSV(t)}
+async function loadNightly(){
+  try{
+    const [m,a]=await Promise.all([fetch(DATA+"meta.json?d="+new Date().toISOString().slice(0,10)).then(r=>r.ok?r.json():null),fetch(DATA+"astro.json?d="+new Date().toISOString().slice(0,10)).then(r=>r.ok?r.json():null)]);
+    st.meta=m;st.astro=a;st.metaMap={};
+    if(m)m.rows.forEach(r=>{st.metaMap[r[0]]={sym:r[0],name:r[1],last:r[2],chg:r[3],wa:r[4],wb:r[5],ws:r[6]}});
+    st.idxMeta={};if(m&&m.idx)m.idx.forEach(r=>{st.idxMeta[r[1]]={sym:r[0],code:r[1],last:r[2],chg:r[3],wa:r[4],wb:r[5],ws:r[6],tk:r[7]}});
+    if(st.idx.length){renderHome();if(st.sel)renderDetail()}
+  }catch(e){}
+  renderTime();
+}
+async function load(){
+  $("#hdr-sub").textContent="Loading…";
+  try{
+    const [ix,un,lv,ilRaw]=await Promise.all([getSheet("Indices"),getSheet("Universe"),getSheet("Levels"),getRaw("Index Lists")]);
+    // index membership straight from the official lists (column header = index code)
+    const mem={};const codes=ilRaw[0];ilRaw.slice(2).forEach(r=>r.forEach((sym,i)=>{sym=(sym||"").trim();if(!sym||!codes[i])return;(mem[sym]=mem[sym]||[]).push(codes[i].trim())}));
+    st.idx=ix.map(r=>({name:r["Index"],code:r["Code"],level:num(r["Level"]),chg:num(r["Day chg %"]),n:num(r["Stocks"]),adv:num(r["Advancing"]),dec:num(r["Declining"]),avg:num(r["Avg stock chg %"]),cube:num(r["At primary / secondary cube"])}));
+    st.uni=un.map(r=>({sym:r["Symbol"],sector:r["Sector"],idx:mem[(r["Symbol"]||"").trim()]||(r["Indices"]||"").trim().split(/\s+/),name:r["Name"],price:num(r["Price (₹)"]),chg:num(r["Day chg %"]),hi:num(r["52w high"]),lo:num(r["52w low"]),cube:num(r["Nearest cube"]),cubeType:r["Cube type"],cubeDist:num(r["Cube distance"]),sig:r["Cube signal"]||"",lvl:num(r["Nearest square / Sq9 / Sq12"]),lvlType:r["Level type"],lvlDist:num(r["Distance"])}));
+    const have=new Set(st.uni.map(x=>x.sym));Object.keys(mem).forEach(k=>{if(!have.has(k))st.uni.push({sym:k,sector:"",idx:mem[k],name:"",price:null,chg:null,sig:""})});
+    st.lv={};lv.forEach(r=>{st.lv[r["Symbol"]]=r});
+    st.loadedAt=new Date();
+    $("#msg").innerHTML="";
+    renderAll();
+  }catch(e){
+    $("#hdr-sub").textContent="Data not reachable";
+    $("#msg").innerHTML=`<div class="notice warn"><span class="dot"></span><span>Can't read the screener sheet. It must be shared as "Anyone with the link: Viewer". (${esc(e.message)})</span></div>`;
+  }
+}
+
+/* ---------- format ---------- */
+const fmt=(v,d=2)=>v==null?"–":v.toLocaleString("en-IN",{minimumFractionDigits:d,maximumFractionDigits:d});
+function chg(v){if(v==null)return`<span class="chg">–</span>`;const up=v>0,dn=v<0;return`<span class="chg ${up?"up":dn?"dn":""}">${up?"▲":dn?"▼":"•"} ${(Math.abs(v)*100).toFixed(2)}%</span>`}
+function sigTag(s,d){if(!s)return"";const c=s.startsWith("Primary")?"p":s.startsWith("Secondary")?"s":"t";return`<span class="tag ${c}">◆ ${esc(s.replace(" cube",""))}${d!=null?" "+(d>0?"+":"")+(d*100).toFixed(2)+"%":""}</span>`}
+const today=()=>new Date().toLocaleDateString("en-IN",{weekday:"short",month:"short",day:"numeric"});
+
+/* ---------- views ---------- */
+function renderAll(){
+  const t=st.loadedAt;$("#hdr-sub").textContent=`${today()} · ${t.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"})}`;
+  $("#loaded-at").textContent=`Last loaded ${t.toLocaleString("en-IN")} · ${st.uni.length} stocks, ${st.uni.filter(x=>x.price!=null).length} with prices`;
+  renderHome();if(st.sel)renderDetail();renderScanControls();renderScan();renderTime();
+}
+function idxLevel(ix){if(ix.level!=null)return{v:ix.level,chg:ix.chg};const m=st.idxMeta[ix.code];return m&&m.tk!=="EQW"?{v:m.last,chg:m.chg,close:true}:{v:null,eqw:!!m}}
+function openIndex(code){const ix=st.idx.find(x=>x.code===code);const L=idxLevel(ix);if(L.v==null&&!L.eqw)return;
+  openStock("IDX_"+code,{sym:"IDX_"+code,label:ix.name,name:ix.name+(L.close?" · last close":""),price:L.v,chg:L.v!=null?L.chg:ix.avg,idx:[],sector:"Index",noLevels:L.v==null})}
+function card(ix){
+  const tot=(ix.adv||0)+(ix.dec||0)||1;
+  const nm=st.idxMeta[ix.code],L=idxLevel(ix);
+  const lvl=L.v!=null?fmt(L.v)+(L.close?` <small>close</small>`:""):`<small>no index quote</small>`;
+  const c=L.v!=null?L.chg:ix.avg;
+  return`<button class="card" data-code="${ix.code}"><div class="nm">${esc(ix.name)}</div><div class="lv">${lvl}</div>${chg(c)}${L.v==null?'<div class="sub" style="font-size:10px">avg of stocks</div>':""}
+  <div class="ad"><i class="a" style="width:${(ix.adv||0)/tot*100}%"></i><i class="d" style="width:${(ix.dec||0)/tot*100}%"></i></div>
+  <div class="ft"><span>▲${ix.adv??0} ▼${ix.dec??0}</span><span>◆${ix.cube??0}</span></div></button>`}
+function renderHome(){
+  const used=new Set(GROUPS.flatMap(g=>g[1]||[]));
+  let h=`<div class="section" style="margin-top:14px"><input id="all-q" placeholder="Search any NSE stock" autocomplete="off"><div id="all-res"></div></div><div class="notice info"><span class="dot"></span><span style="font-weight:500;font-size:13px">Tap an index to see its stocks. ▲▼ = advancing / declining, ◆ = stocks at a primary or secondary cube.</span></div>`;
+  for(const [g,codes] of GROUPS){
+    const list=codes?codes.map(c=>st.idx.find(x=>x.code===c)).filter(Boolean):st.idx.filter(x=>!used.has(x.code));
+    h+=`<div class="grp"><h2>${g}</h2></div><div class="grid">${list.map(card).join("")}</div>`;
+  }
+  $("#idx-home").innerHTML=h;
+  $("#all-q").oninput=e=>searchAll(e.target.value);
+  $("#idx-home").querySelectorAll(".card").forEach(b=>b.onclick=()=>{st.sel=b.dataset.code;st.q="";renderDetail();window.scrollTo(0,0)});
+}
+function members(code){return st.uni.filter(s=>s.idx.includes(code))}
+function sortList(a){
+  const k=st.sort;const v=x=>x==null?Infinity:x;
+  if(k==="chg")return a.sort((x,y)=>(y.chg??-9)-(x.chg??-9));
+  if(k==="lose")return a.sort((x,y)=>(x.chg??9)-(y.chg??9));
+  if(k==="cube")return a.sort((x,y)=>v(x.cubeDist==null?null:Math.abs(x.cubeDist))-v(y.cubeDist==null?null:Math.abs(y.cubeDist)));
+  if(k==="hi")return a.sort((x,y)=>(y.hi&&y.price?y.price/y.hi:0)-(x.hi&&x.price?x.price/x.hi:0));
+  return a.sort((x,y)=>x.sym.localeCompare(y.sym));
+}
+function stockRow(s){
+  return`<button class="stock" data-sym="${esc(s.sym)}"><div class="grow"><div class="sy">${esc(s.sym)}</div><div class="nmx">${esc(s.name||s.sector)}</div>${sigTag(s.sig,s.cubeDist)}</div>
+  <div class="px">${s.price!=null?"₹"+fmt(s.price):"–"}<br>${chg(s.chg)}</div></button>`}
+function bindStocks(root){root.querySelectorAll(".stock[data-sym]").forEach(b=>b.onclick=()=>openStock(b.dataset.sym))}
+function renderDetail(){
+  const ix=st.idx.find(x=>x.code===st.sel);if(!ix)return;
+  $("#idx-home").style.display="none";const d=$("#idx-detail");d.style.display="block";
+  let list=members(st.sel);
+  const q=st.q.trim().toUpperCase();if(q)list=list.filter(s=>s.sym.includes(q)||(s.name||"").toUpperCase().includes(q));
+  sortList(list);
+  const sorts=[["chg","Top gainers"],["lose","Top losers"],["cube","Nearest cube"],["hi","Near 52w high"],["az","A–Z"]];
+  d.innerHTML=`<div class="section">
+    <div class="row between"><button class="link" id="back">← Indices</button><span class="sub">${members(st.sel).length} stocks</span></div>
+    <h1 style="margin-top:14px;font-size:20px">${esc(ix.name)}</h1>
+    ${(()=>{const L=idxLevel(ix);return`<div class="row" style="margin-top:8px">${L.v!=null?`<span class="big">${fmt(L.v)}</span>`:""}${chg(L.v!=null?L.chg:ix.avg)}</div>`+(L.v!=null||L.eqw?`<button class="btn" id="idx-gann" style="margin-top:14px">${L.v!=null?"Gann levels & dates":"Gann dates"} for this index →</button>`:"")})()}
+    <div class="stats"><div class="stat"><b>${ix.adv??0}</b><span>Up</span></div><div class="stat"><b>${ix.dec??0}</b><span>Down</span></div><div class="stat"><b>${ix.avg!=null?(ix.avg*100).toFixed(1):"–"}</b><span>Avg %</span></div><div class="stat"><b>${ix.cube??0}</b><span>◆ Cube</span></div></div>
+  </div>
+  <div class="section"><div class="chips" id="sorts">${sorts.map(([k,l])=>`<button class="chip ${st.sort===k?"on":""}" data-k="${k}">${l}</button>`).join("")}</div>
+  <input id="q" placeholder="Search symbol or name" value="${esc(st.q)}" style="margin-top:12px" autocomplete="off">
+  <div id="stocks" style="margin-top:6px">${list.map(stockRow).join("")||'<div class="empty">No stocks.</div>'}</div></div>`;
+  $("#idx-gann")&&($("#idx-gann").onclick=()=>openIndex(st.sel));
+  $("#back").onclick=()=>{st.sel=null;d.style.display="none";$("#idx-home").style.display="block"};
+  d.querySelectorAll("#sorts .chip").forEach(b=>b.onclick=()=>{st.sort=b.dataset.k;renderDetail()});
+  $("#q").oninput=e=>{st.q=e.target.value;const p=e.target.selectionStart;renderDetail();const n=$("#q");n.focus();n.setSelectionRange(p,p)};
+  bindStocks(d);
+}
+const TIERS=["Primary cube","Secondary cube","Tertiary cube"];
+function renderScanControls(){
+  $("#scan-tier").innerHTML=TIERS.map(t=>`<button class="chip ${st.tier===t?"on":""}" data-t="${t}">${t.replace(" cube","")}</button>`).join("");
+  $("#scan-tier").querySelectorAll(".chip").forEach(b=>b.onclick=()=>{st.tier=b.dataset.t;renderScanControls();renderScan()});
+  const sel=$("#scan-idx");if(!sel.options.length){sel.innerHTML=`<option value="">All 750+ stocks</option>`+st.idx.map(i=>`<option value="${i.code}">${esc(i.name)}</option>`).join("");sel.onchange=()=>{st.scanIdx=sel.value;renderScan()}}
+}
+function renderScan(){
+  let a=st.uni.filter(s=>s.sig===st.tier&&(!st.scanIdx||s.idx.includes(st.scanIdx)));
+  // distance to the matched tier level
+  a.forEach(s=>{s._d=tierDist(s,st.tier)});
+  a.sort((x,y)=>Math.abs(x._d)-Math.abs(y._d));
+  $("#scan-title").textContent=st.tier;$("#scan-count").textContent=a.length+" stocks";
+  $("#scan-list").innerHTML=a.map(s=>stockRow({...s,cubeDist:s._d})).join("")||'<div class="empty">None right now.</div>';
+  bindStocks($("#scan-list"));
+}
+const LV_KEYS={"Primary cube":["Primary cube −1","Primary cube +1"],"Secondary cube":["Secondary cube −3","Secondary cube −2","Secondary cube −1","Secondary cube +1","Secondary cube +2","Secondary cube +3"],"Tertiary cube":["Tertiary cube −3","Tertiary cube −2","Tertiary cube −1","Tertiary cube +1","Tertiary cube +2","Tertiary cube +3"]};
+function tierDist(s,tier){const r=st.lv[s.sym];if(!r||!s.price)return null;let best=null;for(const k of LV_KEYS[tier]){const v=num(r[k]);if(v==null)continue;const d=v/s.price-1;if(best==null||Math.abs(d)<Math.abs(best))best=d}return best}
+
+/* ---------- levels in the browser (same maths as the sheet) ---------- */
+function calcLevels(P){
+  const cheap=P<100,D=cheap?10:1,cb=n=>n*n*n,r={Mode:cheap?"Cheap":"Normal"};
+  const e=Math.floor(Math.cbrt(P*D)+1e-6),f=Math.floor(Math.cbrt(P*D*10)+1e-6),g=Math.floor(Math.cbrt(P*D*100)+1e-6),h=Math.sqrt(P);
+  r["Primary cube −1"]=cb(e)/D;r["Primary cube +1"]=cb(e+1)/D;
+  [[f,"Secondary",D*10],[g,"Tertiary",D*100]].forEach(([n,nm,d])=>{[-3,-2,-1].forEach((k,i)=>r[`${nm} cube ${k===-3?"−3":k===-2?"−2":"−1"}`]=cb(n+k+1)/d);[1,2,3].forEach(k=>r[`${nm} cube +${k}`]=cb(n+k)/d)});
+  r["Square −1"]=Math.floor(h)**2;r["Square +1"]=(Math.floor(h)+1)**2;
+  [["−360°",-2],["−180°",-1],["−90°",-.5],["+90°",.5],["+180°",1],["+360°",2]].forEach(([k,v])=>r["Sq9 "+k]=(h+v)**2);
+  [["−120°",-2/3],["−60°",-1/3],["−30°",-1/6],["+30°",1/6],["+60°",1/3],["+120°",2/3]].forEach(([k,v])=>r["Sq12 "+k]=(h+v)**2);
+  for(const k in r)if(typeof r[k]==="number")r[k]=String(+r[k].toFixed(2));
+  return r}
+function cubeSignal(P,r){for(const t of TIERS){if(LV_KEYS[t].some(k=>Math.abs(num(r[k])/P-1)<=st.band))return t}return""}
+
+/* ---------- all-NSE search ---------- */
+function searchAll(q){
+  q=q.trim().toUpperCase();const box=$("#all-res");if(q.length<2){box.innerHTML="";return}
+  const pool=new Map();st.uni.forEach(u=>pool.set(u.sym,{sym:u.sym,name:u.name||u.sector,price:u.price,chg:u.chg,sig:u.sig,cubeDist:u.cubeDist}));
+  Object.values(st.metaMap).forEach(m=>{if(!pool.has(m.sym))pool.set(m.sym,{sym:m.sym,name:m.name,price:m.last,chg:m.chg})});
+  const res=[...pool.values()].filter(x=>x.sym.includes(q)||(x.name||"").toUpperCase().includes(q)).sort((a,b)=>(b.sym.startsWith(q))-(a.sym.startsWith(q))||a.sym.localeCompare(b.sym)).slice(0,25);
+  box.innerHTML=res.map(stockRow).join("")||`<div class="empty">${st.meta?"No match.":"Full NSE list appears after the first nightly run."}</div>`;bindStocks(box)}
+
+/* ---------- time tab ---------- */
+const dfmt=d=>new Date(d+"T00:00").toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"});
+const dshort=d=>new Date(d+"T00:00").toLocaleDateString("en-IN",{day:"numeric",month:"short"});
+const iso=d=>d.toISOString().slice(0,10);
+function renderTime(){
+  const sel=$("#time-idx");
+  if(!sel.options.length&&st.idx.length){sel.innerHTML=`<option value="">All NSE stocks</option>`+st.idx.map(i=>`<option value="${i.code}">${esc(i.name)}</option>`).join("");sel.onchange=renderTime}
+  if(!st.meta){$("#time-wins").innerHTML=`<div class="empty">Appears after the first nightly run.</div>`;}
+  else{
+    const t0=iso(new Date(Date.now()-864e5)),t7=iso(new Date(Date.now()+7*864e5)),code=sel.value;
+    let rows=Object.values(st.metaMap).filter(m=>m.wa&&m.wa<=t7&&m.wb>=t0);
+    if(code){const set=new Set(members(code).map(x=>x.sym));rows=rows.filter(m=>set.has(m.sym))}
+    rows.sort((a,b)=>b.ws-a.ws);
+    const ir=Object.values(st.idxMeta).filter(m=>m.tk!=="EQW"||true).filter(m=>m.wa&&m.wa<=t7&&m.wb>=t0).sort((a,b)=>b.ws-a.ws);
+    const idxHtml=ir.length?`<div class="sub" style="margin:6px 0 2px;font-weight:700">INDICES</div>`+ir.map(m=>{const ix=st.idx.find(i=>i.code===m.code);return`<button class="stock" data-code="${m.code}"><div class="grow"><div class="sy">${esc(ix?ix.name:m.code)}<span class="sc">${m.ws}</span></div><div class="sub">${dshort(m.wa)}${m.wb!==m.wa?" – "+dshort(m.wb):""}</div></div><div class="px">${m.tk==="EQW"?"":fmt(m.last)+"<br>"+chg(m.chg)}</div></button>`}).join("")+`<div class="sub" style="margin:12px 0 2px;font-weight:700">STOCKS</div>`:"";
+    $("#time-wins").innerHTML=idxHtml+rows.slice(0,60).map(m=>`<button class="stock" data-sym="${esc(m.sym)}"><div class="grow"><div class="sy">${esc(m.sym)}<span class="sc">${m.ws}</span></div><div class="nmx">${esc(m.name)}</div><div class="sub">${dshort(m.wa)}${m.wb!==m.wa?" – "+dshort(m.wb):""}</div></div><div class="px">₹${fmt(m.last)}<br>${chg(m.chg)}</div></button>`).join("")||'<div class="empty">No pivot windows this week.</div>';
+    $("#time-wins").querySelectorAll(".stock[data-code]").forEach(b=>b.onclick=()=>openIndex(b.dataset.code));
+    bindStocks($("#time-wins"));
+  }
+  if(st.astro){
+    const t=iso(new Date()),lim=iso(new Date(Date.now()+75*864e5));
+    const ev=st.astro.events.filter(e=>e.d>=t&&e.d<=lim&&!/^(New|Full) moon$/.test(e.t)||(e.d>=t&&e.d<=iso(new Date(Date.now()+31*864e5))));
+    $("#time-astro").innerHTML=ev.map(e=>`<div class="ar"><span class="v" style="text-align:left;width:70px">${dshort(e.d)}</span><span class="k">${esc(e.t)}</span></div>`).join("")||'<div class="empty">None.</div>';
+    $("#time-press").innerHTML=st.astro.pressure.filter(e=>e.d>=t).slice(0,6).map(e=>`<div class="ar"><span class="v" style="text-align:left;width:100px">${dfmt(e.d)}</span><span class="k">${esc(e.t)}</span></div>`).join("");
+  } else {$("#time-astro").innerHTML=`<div class="empty">Appears after the first nightly run.</div>`;$("#time-press").innerHTML=""}
+}
+
+/* ---------- stock sheet: time & astro ---------- */
+const TF={W:"weekly",D:"daily",ATH:"all-time",ATL:"all-time","52W":"52-week"};
+function why(w){const [cyc,side,tf,d]=w;const u=cyc.endsWith("w")?" weeks":" days";return`${cyc.slice(0,-1)}${u} from ${TF[tf]} ${side==="H"?"high":"low"} ${dfmt(d)}`}
+async function stockTime(sym,price,noLv){
+  const box=$("#sh-time");if(!box)return;
+  let d;try{const r=await fetch(DATA+"s/"+encodeURIComponent(sym)+".json?d="+(st.meta?.asof||""));if(!r.ok)throw 0;d=await r.json()}catch(e){box.innerHTML=`<div class="section" style="margin:14px 0 0;box-shadow:var(--shadow-sm)"><h2>Gann time</h2><div class="empty">${st.meta?"No history for this stock.":"Appears after the first nightly run."}</div></div>`;return}
+  const t=iso(new Date());
+  const wins=d.win.filter(w=>w.b>=iso(new Date(Date.now()-3*864e5)));
+  let h=`<div class="section" style="margin:14px 0 0;box-shadow:var(--shadow-sm)"><h2>Pivot windows ahead</h2><div class="sub" style="margin-bottom:4px">Gann day and week counts from major highs and lows, stacking on the same dates.</div>`;
+  h+=wins.map(w=>`<div class="win ${w.a<=t&&w.b>=t?"now":""}"><div class="wd">${dshort(w.a)}${w.b!==w.a?" – "+dfmt(w.b):", "+new Date(w.a).getFullYear()}<span class="sc">score ${w.sc} · ${w.n} cycles</span></div><div class="why">${w.why.slice(0,3).map(why).map(esc).join("<br>")}</div></div>`).join("")||'<div class="empty">No strong windows in the next year.</div>';
+  h+=`</div><div class="section" style="margin:14px 0 0;box-shadow:var(--shadow-sm)"><h2>Major highs & lows</h2>`;
+  h+=d.piv.slice().reverse().map(p=>`<div class="ar"><span class="k">${p[0]==="H"?"▲ High":"▼ Low"} <span class="sub">${TF[p[1]]}</span></span><span class="v">${dfmt(p[2])}</span>${noLv?"":`<span class="v" style="width:84px">${sym.startsWith("IDX_")?"":"₹"}${fmt(p[3])}</span>`}</div>`).join("");
+  h+=`<div class="sub" style="margin-top:6px">History from ${dfmt(d.first)} · data as of ${dfmt(d.asof)}</div></div>`;
+  const cats=Object.entries(d.astro||{}).map(([k,v])=>({k,n:v[0],hit:v[1],base:v[2],mv:v[3],mvAll:v[4],rate:v[1]/v[0]})).map(x=>({...x,lift:x.base?x.rate/x.base:0})).sort((a,b)=>b.lift-a.lift);
+  if(cats.length){
+    const nextOf=k=>st.astro?.events.find(e=>e.c===k&&e.d>=t);
+    const row=x=>{const nx=nextOf(x.k);const cls=x.lift>=1.3&&x.n>=8?"hi":x.lift<=.75?"lo":"";
+      return`<div class="ar"><span class="k"><b>${esc(x.k)}</b><br><span class="sub">next ${nx?dshort(nx.d):"–"}${nx&&nx.t!==x.k?" · "+esc(nx.t):""}</span></span><span class="v">${x.hit}/${x.n} turned<br><span class="lift ${cls}">${Math.round(x.rate*100)}% vs ${Math.round(x.base*100)}% base</span></span></div>`};
+    h+=`<div class="section" style="margin:14px 0 0;box-shadow:var(--shadow-sm)"><h2>Astro history</h2><div class="sub" style="margin-bottom:4px">How often this stock turned (a ±10-day high or low) within 2 trading days of each event type since 2005, against its random-day base rate.</div>${cats.slice(0,8).map(row).join("")}${cats.length>8?`<details><summary>All ${cats.length} event types</summary>${cats.slice(8).map(row).join("")}</details>`:""}</div>`;
+  }
+  box.innerHTML=h;
+}
+
+/* ---------- stock sheet ---------- */
+function ladder(title,keys,s,r){
+  const rows=keys.map(k=>({k,v:num(r[k])})).filter(x=>x.v!=null);
+  rows.push({k:"Price now",v:s.price,now:true,ix:!!s.label});rows.sort((a,b)=>b.v-a.v);
+  return`<div class="section" style="margin:14px 0 0;box-shadow:var(--shadow-sm)"><h2>${title}</h2><div class="lad">${rows.map(x=>{
+    if(x.now)return`<div class="lr now"><span class="k"><b>● Price now</b></span><span class="v">${x.ix?"":"₹"}${fmt(x.v)}</span><span class="d"></span></div>`;
+    const d=x.v/s.price-1,hit=Math.abs(d)<=st.band;
+    const tc=x.k.startsWith("Primary")?"tp":x.k.startsWith("Secondary")?"ts":x.k.startsWith("Tertiary")?"tt":"";
+    return`<div class="lr ${tc} ${hit?"hit":""}"><span class="k">${hit?"<b>":""}${esc(x.k)}${hit?"</b>":""}</span><span class="v">${fmt(x.v)}</span><span class="d">${d>0?"+":""}${(d*100).toFixed(2)}%</span></div>`}).join("")}</div></div>`}
+function openStock(sym,ov){
+  let s=ov||st.uni.find(x=>x.sym===sym),r=ov?null:st.lv[sym];
+  if(!s||s.price==null){const m=st.metaMap[sym];if(!m&&!s)return;if(m){s={...(s||{idx:[],sector:""}),sym,name:m.name,price:m.last,chg:m.chg};}}
+  if(!s.noLevels&&(!r||!num(r["Primary cube −1"]))&&s.price){r=calcLevels(s.price);s.sig=cubeSignal(s.price,r)}
+  const pos=s.hi&&s.lo&&s.hi>s.lo&&s.price!=null?Math.min(100,Math.max(0,(s.price-s.lo)/(s.hi-s.lo)*100)):null;
+  const idxNames=(s.idx||[]).map(c=>st.idx.find(i=>i.code===c)?.name).filter(Boolean);
+  let h=`<div class="grip"></div><div class="row between"><div class="grow"><h1 style="font-size:20px">${esc(s.label||s.sym)}</h1><div class="sub">${esc(s.name||"")}${s.sector?" · "+esc(s.sector):""}</div></div><button class="icon-btn" id="sh-x" aria-label="Close">✕</button></div>
+  <div class="row" style="margin-top:12px">${s.price!=null?`<span class="big">${ov?"":"₹"}${fmt(s.price)}</span>`:""}${chg(s.chg)}</div>
+  ${s.sig?`<div style="margin-top:10px">${sigTag(s.sig,tierDist(s,s.sig))} <span class="sub">${r&&!ov?esc(r["Mode"])+" stock":""}</span></div>`:(r?`<div class="sub" style="margin-top:8px">${ov?"Index":esc(r["Mode"])+" stock"} · no cube within ${(st.band*100).toFixed(0)}%</div>`:"")}
+  ${pos!=null?`<div class="sub" style="margin-top:14px">52-week range</div><div class="rng"><i style="left:${pos}%"></i></div><div class="row between sub"><span>₹${fmt(s.lo)}</span><span>₹${fmt(s.hi)}</span></div>`:""}`;
+  if(r&&s.price){
+    h+=ladder("Cube levels",[...LV_KEYS["Primary cube"],...LV_KEYS["Secondary cube"],...LV_KEYS["Tertiary cube"]],s,r);
+    h+=ladder("Squares & Square of 9",["Square −1","Square +1","Sq9 −360°","Sq9 −180°","Sq9 −90°","Sq9 +90°","Sq9 +180°","Sq9 +360°"],s,r);
+    h+=ladder("Square of 12",["Sq12 −120°","Sq12 −60°","Sq12 −30°","Sq12 +30°","Sq12 +60°","Sq12 +120°"],s,r);
+  } else h+=`<div class="empty" style="margin-top:14px">${s.noLevels?"No real index level is available, so cube levels are not shown. The Gann dates below come from an equal-weight version of this index built from its stocks.":"No price from Google Finance for this stock."}</div>`;
+  h+=`<div id="sh-time"><div class="empty" style="margin-top:14px">Loading Gann time…</div></div>`;
+  if(idxNames.length)h+=`<div class="sub" style="margin-top:14px">In: ${esc(idxNames.join(", "))}</div>`;
+  $("#sheet").innerHTML=h;$("#sheet-bg").classList.add("on");$("#sheet").scrollTop=0;
+  $("#sh-x").onclick=closeSheet;
+  stockTime(sym,s.price,!!s.noLevels);
+}
+function closeSheet(){$("#sheet-bg").classList.remove("on")}
+$("#sheet-bg").onclick=e=>{if(e.target.id==="sheet-bg")closeSheet()};
+
+/* ---------- nav & theme ---------- */
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
+  if(b.dataset.v==="indices"&&st.sel){st.sel=null;$("#idx-detail").style.display="none";$("#idx-home").style.display="block"}
+  document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("on",x===b));
+  document.querySelectorAll(".view").forEach(v=>v.classList.toggle("on",v.id==="v-"+b.dataset.v));window.scrollTo(0,0)});
+const THEMES=[["pista","Pista","#cfe8b0"],["butter","Butter","#ffe8a3"],["sky","Sky","#bfe3ff"],["bubblegum","Bubblegum","#ffc9e0"],["lilac","Lilac","#d9ccff"],["night","Night","#121a0f"],["mono","Mono","linear-gradient(135deg,#ffffff 50%,#000000 50%)"],["noir","Noir","#000000"]];
+function applyTheme(t){
+  t=THEMES.some(x=>x[0]===t)?t:"pista";
+  if(t==="pista")document.documentElement.removeAttribute("data-theme");else document.documentElement.setAttribute("data-theme",t);
+  try{localStorage.setItem("igs-theme",t)}catch(e){}
+  const bw=t==="mono"||t==="noir",lg=bw?"logo-"+t+".svg":"logo.svg";
+  $("#brand-logo").setAttribute("src",lg);$("#fav").setAttribute("href",bw?"logo-"+t+".png":"favicon.png");
+  $("#tc").setAttribute("content",t==="noir"?"#000000":t==="mono"?"#ffffff":getComputedStyle(document.documentElement).getPropertyValue("--bg").trim());
+  $("#themes").innerHTML=THEMES.map(([k,n,c])=>`<button class="theme-btn ${k===t?"on":""}" data-t="${k}"><i style="background:${c}"></i>${n}</button>`).join("");
+  $("#themes").querySelectorAll(".theme-btn").forEach(b=>b.onclick=()=>applyTheme(b.dataset.t));
+}
+let cur;try{cur=localStorage.getItem("igs-theme")}catch(e){}
+applyTheme(cur||"pista");
+$("#quick-theme").onclick=()=>{const t=document.documentElement.getAttribute("data-theme")||"pista";const i=THEMES.findIndex(x=>x[0]===t);applyTheme(THEMES[(i+1)%THEMES.length][0])};
+$("#refresh").onclick=load;
+document.addEventListener("gesturestart",e=>e.preventDefault());
+let lastTouch=0;document.addEventListener("touchend",e=>{const n=Date.now();if(n-lastTouch<300)e.preventDefault();lastTouch=n},{passive:false});
+load().then(loadNightly);setInterval(()=>{if(!document.hidden)load()},5*60*1000);
+</script>
+</body>
+</html>

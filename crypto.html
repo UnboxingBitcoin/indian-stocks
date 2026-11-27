@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Crypto · Gann Screener</title>
+<link rel="icon" id="fav" href="favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" id="tc" content="#cfe8b0">
+<script>try{var _t=localStorage.getItem("igs-theme");if(_t==="noir"||_t==="mono")document.getElementById("tc").setAttribute("content",_t==="noir"?"#000000":"#ffffff")}catch(e){}</script>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Gann India">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="hdr row between">
+    <a class="brand" href="./" style="color:inherit;text-decoration:none" aria-label="Home"><img id="brand-logo" src="logo.svg" alt=""><div><h1>Crypto</h1><div class="sub" id="hdr-sub">Loading…</div></div></a>
+    <div class="row" style="gap:8px">
+      <a class="icon-btn" href="./" aria-label="Home" style="color:var(--ink)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg></a>
+      <button class="icon-btn" id="refresh" aria-label="Refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/></svg></button>
+      <button class="icon-btn" id="quick-theme" aria-label="Theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
+    </div>
+  </div>
+  <div id="msg"></div>
+  <section class="view on" id="v-coins">
+    <div class="section"><div class="row between"><h2>Coins</h2><span class="sub">USD · live</span></div><div id="coins"><div class="empty">Loading…</div></div></div>
+    <div class="section"><h2>Pivot windows ahead</h2><div class="sub" style="margin-bottom:6px">Next Gann time windows for every coin, soonest first.</div><div id="c-wins"><div class="empty">Loading…</div></div></div>
+  </section>
+  <section class="view" id="v-time">
+    <div class="section"><h2>Astro events ahead</h2><div id="time-astro"><div class="empty">Loading…</div></div>
+      <div class="sub" style="margin-top:10px">Full calendar: <a href="https://unboxingbitcoin.github.io/astro-calendar/#feed" style="color:inherit">Krishna Mukh astro calendar</a></div></div>
+    <div class="section"><h2>Gann pressure dates</h2><div id="time-press"></div></div>
+  </section>
+  <section class="view" id="v-more">
+    <div class="section"><h2>Theme</h2><div class="themes" id="themes"></div></div>
+    <div class="section"><h2>How it works</h2><ul class="plain">
+      <li><b>Prices</b>: live from CoinGecko (Coinbase as backup), refreshed every minute.</li>
+      <li><b>Cube levels</b> on the USD price: primary n³ (1 above, 1 below), secondary n³/10 and tertiary n³/100 (3 above, 3 below). Coins under $100 shift one step: n³/10, n³/100, n³/1000.</li>
+      <li><b>Square of 9</b> (√P ± 0.5, 1, 2)² and <b>Square of 12</b> (√P ± 1/6, 1/3, 2/3)².</li>
+      <li><b>Pivot windows</b>: Gann counts from 30 to 1440 days and weeks from weekly, daily, all-time and 52-week highs and lows, grouped where 3 or more land within 4 days.</li>
+      <li><b>Astro history</b>: Swiss Ephemeris, Lahiri sidereal; a hit is a ±10-day turn within 2 days of the event.</li>
+      <li>Gann data refreshes daily at about 6:10 pm IST.</li></ul></div>
+  </section>
+  <div class="foot">Not investment advice. Levels are mechanical Gann calculations.</div>
+</div>
+<nav><div class="in">
+  <button data-v="coins" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 8h4a2 2 0 0 1 0 4h-4m0 0h4.5a2 2 0 0 1 0 4H9.5zM11 6v2m0 8v2"/></svg>Coins</button>
+  <button data-v="time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Time</button>
+  <button data-v="more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>More</button>
+</div></nav>
+<div class="sheet-bg" id="sheet-bg"><div class="sheet" id="sheet"></div></div>
+<script>
+const DATA="https://raw.githubusercontent.com/UnboxingBitcoin/indian-stocks/data/";
+const CUR="$";
+// Coins shown on the page. Add more here and in scripts/build_data.py (CRYPTO).
+const COINS=[{code:"BTC",name:"Bitcoin",cg:"bitcoin",cb:"BTC-USD"}];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const st={band:.01,cm:null,astro:null,px:{},loadedAt:null};
+const TIERS=["Primary cube","Secondary cube","Tertiary cube"];
+function num(s){if(s==null)return null;const v=parseFloat(String(s).replace(/[,%\s$]/g,""));return isNaN(v)?null:v}
+const fmt=(v,d)=>{if(v==null)return"–";d=d??(v<1?4:2);return v.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d})};
+function chg(v){if(v==null)return`<span class="chg">–</span>`;const up=v>0,dn=v<0;return`<span class="chg ${up?"up":dn?"dn":""}">${up?"▲":dn?"▼":"•"} ${(Math.abs(v)*100).toFixed(2)}%</span>`}
+function sigTag(s,d){if(!s)return"";const c=s.startsWith("Primary")?"p":s.startsWith("Secondary")?"s":"t";return`<span class="tag ${c}">◆ ${esc(s.replace(" cube",""))}${d!=null?" "+(d>0?"+":"")+(d*100).toFixed(2)+"%":""}</span>`}
+function nearDist(P,r,t){let b=null;for(const k of LV_KEYS[t]){const d=num(r[k])/P-1;if(b==null||Math.abs(d)<Math.abs(b))b=d}return b}
+const LV_KEYS={"Primary cube":["Primary cube −1","Primary cube +1"],"Secondary cube":["Secondary cube −3","Secondary cube −2","Secondary cube −1","Secondary cube +1","Secondary cube +2","Secondary cube +3"],"Tertiary cube":["Tertiary cube −3","Tertiary cube −2","Tertiary cube −1","Tertiary cube +1","Tertiary cube +2","Tertiary cube +3"]};
+/* ---------- levels in the browser (same maths as the sheet) ---------- */
+function calcLevels(P){
+  const cheap=P<100,D=cheap?10:1,cb=n=>n*n*n,r={Mode:cheap?"Cheap":"Normal"};
+  const e=Math.floor(Math.cbrt(P*D)+1e-6),f=Math.floor(Math.cbrt(P*D*10)+1e-6),g=Math.floor(Math.cbrt(P*D*100)+1e-6),h=Math.sqrt(P);
+  r["Primary cube −1"]=cb(e)/D;r["Primary cube +1"]=cb(e+1)/D;
+  [[f,"Secondary",D*10],[g,"Tertiary",D*100]].forEach(([n,nm,d])=>{[-3,-2,-1].forEach((k,i)=>r[`${nm} cube ${k===-3?"−3":k===-2?"−2":"−1"}`]=cb(n+k+1)/d);[1,2,3].forEach(k=>r[`${nm} cube +${k}`]=cb(n+k)/d)});
+  r["Square −1"]=Math.floor(h)**2;r["Square +1"]=(Math.floor(h)+1)**2;
+  [["−360°",-2],["−180°",-1],["−90°",-.5],["+90°",.5],["+180°",1],["+360°",2]].forEach(([k,v])=>r["Sq9 "+k]=(h+v)**2);
+  [["−120°",-2/3],["−60°",-1/3],["−30°",-1/6],["+30°",1/6],["+60°",1/3],["+120°",2/3]].forEach(([k,v])=>r["Sq12 "+k]=(h+v)**2);
+  for(const k in r)if(typeof r[k]==="number")r[k]=String(+r[k].toFixed(2));
+  return r}
+function cubeSignal(P,r){for(const t of TIERS){if(LV_KEYS[t].some(k=>Math.abs(num(r[k])/P-1)<=st.band))return t}return""}
+
+const dfmt=d=>new Date(d+"T00:00").toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"});
+const dshort=d=>new Date(d+"T00:00").toLocaleDateString("en-IN",{day:"numeric",month:"short"});
+const iso=d=>d.toISOString().slice(0,10);
+/* ---------- stock sheet: time & astro ---------- */
+const TF={W:"weekly",D:"daily",ATH:"all-time",ATL:"all-time","52W":"52-week"};
+function why(w){const [cyc,side,tf,d]=w;const u=cyc.endsWith("w")?" weeks":" days";return`${cyc.slice(0,-1)}${u} from ${TF[tf]} ${side==="H"?"high":"low"} ${dfmt(d)}`}
+async function stockTime(sym,price,noLv){
+  const box=$("#sh-time");if(!box)return;
+  let d;try{const r=await fetch(DATA+"s/"+encodeURIComponent(sym)+".json?d="+(st.cm?.asof||""));if(!r.ok)throw 0;d=await r.json()}catch(e){box.innerHTML=`<div class="section" style="margin:14px 0 0;box-shadow:var(--shadow-sm)"><h2>Gann time</h2><div class="empty">${st.cm?"No history for this coin.":"Appears after the first nightly run."}</div></div>`;return}
+  const t=iso(new Date());
+  const wins=d.win.filter(w=>w.b>=iso(new Date(Date.now()-3*864e5)));
+  let h=`<div class="section" style="margin:14px 0 0;box-shadow:var(--shadow-sm)"><h2>Pivot windows ahead</h2><div class="sub" style="margin-bottom:4px">Gann day and week counts from major highs and lows, stacking on the same dates.</div>`;
+  h+=wins.map(w=>`<div class="win ${w.a<=t&&w.b>=t?"now":""}"><div class="wd">${dshort(w.a)}${w.b!==w.a?" – "+dfmt(w.b):", "+new Date(w.a).getFullYear()}<span class="sc">score ${w.sc} · ${w.n} cycles</span></div><div class="why">${w.why.slice(0,3).map(why).map(esc).join("<br>")}</div></div>`).join("")||'<div class="empty">No strong windows in the next year.</div>';
+  h+=`</div><div class="section" style="margin:14px 0 0;box-shadow:var(--shadow-sm)"><h2>Major highs & lows</h2>`;
+  h+=d.piv.slice().reverse().map(p=>`<div class="ar"><span class="k">${p[0]==="H"?"▲ High":"▼ Low"} <span class="sub">${TF[p[1]]}</span></span><span class="v">${dfmt(p[2])}</span>${noLv?"":`<span class="v" style="width:84px">${CUR}${fmt(p[3])}</span>`}</div>`).join("");
+  h+=`<div class="sub" style="margin-top:6px">History from ${dfmt(d.first)} · data as of ${dfmt(d.asof)}</div></div>`;
+  const cats=Object.entries(d.astro||{}).map(([k,v])=>({k,n:v[0],hit:v[1],base:v[2],mv:v[3],mvAll:v[4],rate:v[1]/v[0]})).map(x=>({...x,lift:x.base?x.rate/x.base:0})).sort((a,b)=>b.lift-a.lift);
+  if(cats.length){
+    const nextOf=k=>st.astro?.events.find(e=>e.c===k&&e.d>=t);
+    const row=x=>{const nx=nextOf(x.k);const cls=x.lift>=1.3&&x.n>=8?"hi":x.lift<=.75?"lo":"";
+      return`<div class="ar"><span class="k"><b>${esc(x.k)}</b><br><span class="sub">next ${nx?dshort(nx.d):"–"}${nx&&nx.t!==x.k?" · "+esc(nx.t):""}</span></span><span class="v">${x.hit}/${x.n} turned<br><span class="lift ${cls}">${Math.round(x.rate*100)}% vs ${Math.round(x.base*100)}% base</span></span></div>`};
+    h+=`<div class="section" style="margin:14px 0 0;box-shadow:var(--shadow-sm)"><h2>Astro history</h2><div class="sub" style="margin-bottom:4px">How often this coin turned (a ±10-day high or low) within 2 days of each event type, against its random-day base rate.</div>${cats.slice(0,8).map(row).join("")}${cats.length>8?`<details><summary>All ${cats.length} event types</summary>${cats.slice(8).map(row).join("")}</details>`:""}</div>`;
+  }
+  box.innerHTML=h;
+}
+
+function ladder(title,keys,s,r){
+  const rows=keys.map(k=>({k,v:num(r[k])})).filter(x=>x.v!=null);
+  rows.push({k:"Price now",v:s.price,now:true,ix:!!s.label});rows.sort((a,b)=>b.v-a.v);
+  return`<div class="section" style="margin:14px 0 0;box-shadow:var(--shadow-sm)"><h2>${title}</h2><div class="lad">${rows.map(x=>{
+    if(x.now)return`<div class="lr now"><span class="k"><b>● Price now</b></span><span class="v">${CUR}${fmt(x.v)}</span><span class="d"></span></div>`;
+    const d=x.v/s.price-1,hit=Math.abs(d)<=st.band;
+    const tc=x.k.startsWith("Primary")?"tp":x.k.startsWith("Secondary")?"ts":x.k.startsWith("Tertiary")?"tt":"";
+    return`<div class="lr ${tc} ${hit?"hit":""}"><span class="k">${hit?"<b>":""}${esc(x.k)}${hit?"</b>":""}</span><span class="v">${fmt(x.v)}</span><span class="d">${d>0?"+":""}${(d*100).toFixed(2)}%</span></div>`}).join("")}</div></div>`}
+
+/* ---------- data ---------- */
+async function prices(){
+  const out={};
+  try{const ids=COINS.map(c=>c.cg).join(",");const r=await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`);if(!r.ok)throw 0;const j=await r.json();
+    COINS.forEach(c=>{const x=j[c.cg];if(x&&x.usd)out[c.code]={p:x.usd,c:x.usd_24h_change!=null?x.usd_24h_change/100:null,src:"CoinGecko"}})}catch(e){}
+  for(const c of COINS){if(out[c.code])continue;
+    try{const r=await fetch(`https://api.exchange.coinbase.com/products/${c.cb}/stats`);const j=await r.json();const p=+j.last,o=+j.open;if(p)out[c.code]={p,c:o?p/o-1:null,src:"Coinbase"}}catch(e){}}
+  return out}
+async function load(){
+  st.px=await prices();st.loadedAt=new Date();
+  if(!Object.keys(st.px).length){$("#msg").innerHTML=`<div class="notice warn"><span class="dot"></span><span>Live prices didn't load. Showing the last daily close.</span></div>`}else $("#msg").innerHTML="";
+  render()}
+async function loadNightly(){
+  const d=new Date().toISOString().slice(0,10);
+  try{const [c,a]=await Promise.all([fetch(DATA+"crypto.json?d="+d).then(r=>r.ok?r.json():null),fetch(DATA+"astro.json?d="+d).then(r=>r.ok?r.json():null)]);st.cm=c;st.astro=a}catch(e){}
+  render();renderTime()}
+function coin(c){const live=st.px[c.code],row=st.cm?.rows.find(r=>r[0]==="C_"+c.code);
+  const price=live?live.p:row?row[2]:null,ch=live?live.c:row?row[3]:null;
+  let sig="",dist=null;if(price){const r=calcLevels(price);sig=cubeSignal(price,r);if(sig)dist=nearDist(price,r,sig)}
+  return{...c,price,chg:ch,live:!!live,src:live?.src,sig,dist,wa:row?.[4],wb:row?.[5],ws:row?.[6]}}
+function render(){
+  const t=st.loadedAt||new Date();$("#hdr-sub").textContent=`${t.toLocaleDateString("en-IN",{weekday:"short",month:"short",day:"numeric"})} · ${t.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"})}`;
+  const cs=COINS.map(coin);
+  $("#coins").innerHTML=cs.map(c=>`<button class="stock" data-c="${c.code}"><div class="grow"><div class="sy">${esc(c.code)}</div><div class="nmx">${esc(c.name)}${c.live?"":" · last close"}</div>${sigTag(c.sig,c.dist)}</div><div class="px">${c.price!=null?CUR+fmt(c.price):"–"}<br>${chg(c.chg)}</div></button>`).join("");
+  $("#coins").querySelectorAll(".stock").forEach(b=>b.onclick=()=>openCoin(b.dataset.c));
+  if(!st.cm){$("#c-wins").innerHTML=`<div class="empty">Appears after the next daily run.</div>`;return}
+  const w=cs.filter(c=>c.wa).sort((a,b)=>a.wa.localeCompare(b.wa));
+  $("#c-wins").innerHTML=w.map(c=>`<button class="stock" data-c="${c.code}"><div class="grow"><div class="sy">${esc(c.code)}<span class="sc">${c.ws}</span></div><div class="sub">${dshort(c.wa)}${c.wb!==c.wa?" – "+dfmt(c.wb):""}</div></div></button>`).join("")||'<div class="empty">No windows.</div>';
+  $("#c-wins").querySelectorAll(".stock").forEach(b=>b.onclick=()=>openCoin(b.dataset.c))}
+function renderTime(){
+  if(!st.astro){$("#time-astro").innerHTML=`<div class="empty">Appears after the next daily run.</div>`;return}
+  const t=iso(new Date()),lim=iso(new Date(Date.now()+75*864e5)),m31=iso(new Date(Date.now()+31*864e5));
+  const ev=st.astro.events.filter(e=>e.d>=t&&(e.d<=m31||(e.d<=lim&&!/^(New|Full) moon$/.test(e.t))));
+  $("#time-astro").innerHTML=ev.map(e=>`<div class="ar"><span class="v" style="text-align:left;width:70px">${dshort(e.d)}</span><span class="k">${esc(e.t)}</span></div>`).join("")||'<div class="empty">None.</div>';
+  $("#time-press").innerHTML=st.astro.pressure.filter(e=>e.d>=t).slice(0,6).map(e=>`<div class="ar"><span class="v" style="text-align:left;width:100px">${dfmt(e.d)}</span><span class="k">${esc(e.t)}</span></div>`).join("")}
+function openCoin(code){
+  const c=coin(COINS.find(x=>x.code===code));const s={sym:c.code,price:c.price,chg:c.chg};
+  let h=`<div class="grip"></div><div class="row between"><div class="grow"><h1 style="font-size:20px">${esc(c.name)}</h1><div class="sub">${esc(c.code)} / USD${c.live?" · "+esc(c.src):" · last daily close"}</div></div><button class="icon-btn" id="sh-x" aria-label="Close">✕</button></div>
+  <div class="row" style="margin-top:12px">${c.price!=null?`<span class="big">${CUR}${fmt(c.price)}</span>`:""}${chg(c.chg)}</div>
+  <div style="margin-top:10px">${c.sig?sigTag(c.sig,c.dist):`<span class="sub">No cube within ${(st.band*100).toFixed(0)}%</span>`}</div>`;
+  if(c.price){const r=calcLevels(c.price);
+    h+=ladder("Cube levels",[...LV_KEYS["Primary cube"],...LV_KEYS["Secondary cube"],...LV_KEYS["Tertiary cube"]],s,r);
+    h+=ladder("Squares & Square of 9",["Square −1","Square +1","Sq9 −360°","Sq9 −180°","Sq9 −90°","Sq9 +90°","Sq9 +180°","Sq9 +360°"],s,r);
+    h+=ladder("Square of 12",["Sq12 −120°","Sq12 −60°","Sq12 −30°","Sq12 +30°","Sq12 +60°","Sq12 +120°"],s,r)}
+  h+=`<div id="sh-time"><div class="empty" style="margin-top:14px">Loading Gann time…</div></div>`;
+  $("#sheet").innerHTML=h;$("#sheet-bg").classList.add("on");$("#sheet").scrollTop=0;$("#sh-x").onclick=closeSheet;
+  stockTime("C_"+c.code,c.price,false)}
+function closeSheet(){$("#sheet-bg").classList.remove("on")}
+$("#sheet-bg").onclick=e=>{if(e.target.id==="sheet-bg")closeSheet()};
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("on",x===b));
+  document.querySelectorAll(".view").forEach(v=>v.classList.toggle("on",v.id==="v-"+b.dataset.v));window.scrollTo(0,0)});
+const THEMES=[["pista","Pista","#cfe8b0"],["butter","Butter","#ffe8a3"],["sky","Sky","#bfe3ff"],["bubblegum","Bubblegum","#ffc9e0"],["lilac","Lilac","#d9ccff"],["night","Night","#121a0f"],["mono","Mono","linear-gradient(135deg,#ffffff 50%,#000000 50%)"],["noir","Noir","#000000"]];
+function applyTheme(t){
+  t=THEMES.some(x=>x[0]===t)?t:"pista";
+  if(t==="pista")document.documentElement.removeAttribute("data-theme");else document.documentElement.setAttribute("data-theme",t);
+  try{localStorage.setItem("igs-theme",t)}catch(e){}
+  const bw=t==="mono"||t==="noir",lg=bw?"logo-"+t+".svg":"logo.svg";
+  $("#brand-logo").setAttribute("src",lg);$("#fav").setAttribute("href",bw?"logo-"+t+".png":"favicon.png");
+  $("#tc").setAttribute("content",t==="noir"?"#000000":t==="mono"?"#ffffff":getComputedStyle(document.documentElement).getPropertyValue("--bg").trim());
+  $("#themes").innerHTML=THEMES.map(([k,n,c])=>`<button class="theme-btn ${k===t?"on":""}" data-t="${k}"><i style="background:${c}"></i>${n}</button>`).join("");
+  $("#themes").querySelectorAll(".theme-btn").forEach(b=>b.onclick=()=>applyTheme(b.dataset.t));
+}
+let cur;try{cur=localStorage.getItem("igs-theme")}catch(e){}
+applyTheme(cur||"pista");
+$("#quick-theme").onclick=()=>{const t=document.documentElement.getAttribute("data-theme")||"pista";const i=THEMES.findIndex(x=>x[0]===t);applyTheme(THEMES[(i+1)%THEMES.length][0])};
+$("#refresh").onclick=()=>{load();loadNightly()};
+document.addEventListener("gesturestart",e=>e.preventDefault());
+let lastTouch=0;document.addEventListener("touchend",e=>{const n=Date.now();if(n-lastTouch<300)e.preventDefault();lastTouch=n},{passive:false});
+render();load();loadNightly();setInterval(()=>{if(!document.hidden)load()},60*1000);
+</script>
+</body>
+</html>

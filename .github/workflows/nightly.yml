@@ -1,7 +1,7 @@
 name: Nightly Gann data
 on:
   schedule:
-    - cron: "40 12 * * 1-5"   # 18:10 IST, after market close, Mon–Fri
+    - cron: "40 12 * * *"   # 18:10 IST daily (stocks Mon–Fri; crypto trades every day)
   workflow_dispatch:
   push:
     branches: [main]
