@@ -128,3 +128,4 @@ ul.plain{padding-left:18px;margin:8px 0;font-size:14px}
 
 .hdr h1{white-space:nowrap}
 .hdr .sub{white-space:nowrap}
+.sheet{overscroll-behavior:contain;touch-action:pan-y}
