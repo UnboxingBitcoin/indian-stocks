@@ -37,9 +37,6 @@ INDEX_TICKERS = {
     "CHEM": ["NIFTY_CHEMICALS.NS"],
 }
 
-# Crypto: code -> (name, Yahoo ticker). Add more coins here.
-CRYPTO = {"BTC": ("Bitcoin", "BTC-USD")}
-
 # NSE (niftyindices.com) names, used when Yahoo has no ticker for an index
 NSE_INDEX_NAMES = {"MIC250": "NIFTY MICROCAP 250", "PVTBANK": "NIFTY PRIVATE BANK", "OILGAS": "NIFTY OIL & GAS",
                    "HEALTH": "NIFTY HEALTHCARE INDEX", "MEDIA": "NIFTY MEDIA", "CDUR": "NIFTY CONSUMER DURABLES",
@@ -320,16 +317,6 @@ def main():
                 idx_rows.append(row + [t])
             except Exception as e:
                 log("index record fail", code, e)
-    crypto_rows = []
-    for code, (cname, tk) in CRYPTO.items():
-        t, d = index_history([tk])
-        log("crypto", code, None if d is None else len(d))
-        if d is not None:
-            try:
-                crypto_rows.append(record("C_" + code, cname, d, ev_hist) + [tk])
-            except Exception as e:
-                log("crypto record fail", code, e)
-    json.dump({"asof": TODAY.isoformat(), "rows": crypto_rows}, open(os.path.join(OUT, "crypto.json"), "w"), separators=(",", ":"))
     have = {r[1] for r in idx_rows}
     missing = [c for c in INDEX_TICKERS if c not in have]
     for code in list(missing):

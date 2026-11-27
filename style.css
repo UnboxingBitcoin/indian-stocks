@@ -126,12 +126,5 @@ ul.plain{padding-left:18px;margin:8px 0;font-size:14px}
 .lift{font-weight:700}.lift.hi{color:var(--good)}.lift.lo{color:var(--bad)}
 .foot{font-size:11px;color:var(--muted);text-align:center;margin-top:22px;font-family:"Space Mono",monospace}
 
-/* home page */
-.home-btn{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:var(--card);border:2.5px solid var(--line);border-radius:18px;padding:16px;box-shadow:var(--shadow);margin:16px 0;transition:transform .06s,box-shadow .06s}
-.home-btn:active{transform:translate(2px,2px);box-shadow:0 0 0 var(--line)}
-.home-btn .ic{width:56px;height:56px;border-radius:14px;border:2.5px solid var(--line);background:var(--pop);display:flex;align-items:center;justify-content:center;font:700 26px/1 "Archivo Black",sans-serif;color:var(--on-pop);flex:none}
-.home-btn .t{font-family:"Archivo Black",sans-serif;font-size:20px;text-transform:uppercase;line-height:1.1}
-.home-btn .q{font-family:"Space Mono",monospace;font-size:13px;margin-top:4px}
-.home-btn .go{font:700 22px/1 "Space Mono",monospace}
 .hdr h1{white-space:nowrap}
 .hdr .sub{white-space:nowrap}
